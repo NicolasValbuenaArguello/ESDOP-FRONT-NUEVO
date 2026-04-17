@@ -1,72 +1,34 @@
-      <div class="input-group">
-        <label for="password">Contraseña</label>
-        <input id="password" [(ngModel)]="usuarioForm.password" name="password" type="password" [required]="!usuarioForm.id">
-      </div>
-      <div class="input-group">
-        <label for="nivel_per_uni">Nivel permiso unidad</label>
-        <select id="nivel_per_uni" [(ngModel)]="usuarioForm.nivel_per_uni" name="nivel_per_uni" required>
-          <option value="" disabled selected>Selecciona nivel</option>
-          <option value="EJC">EJC</option>
-          <option value="DIV">DIV</option>
-          <option value="BR">BR</option>
-          <option value="UT">UT</option>
-        </select>
-      </div>
-      <div class="input-group">
-        <label for="unida_per">Unidad permiso</label>
-        <input id="unida_per" [(ngModel)]="usuarioForm.unida_per" name="unida_per">
-      </div>
-      <div class="input-group">
-        <label>Permisos por página</label>
-        <div class="permiso-row" *ngFor="let p of permisosPaginas">
-          <span class="permiso-pagina">{{p.pagina}}</span>
-          <label *ngFor="let key of ['ver','crear','editar','eliminar']" class="permiso-check">
-            <input type="checkbox" [(ngModel)]="p[key]" name="{{p.pagina}}-{{key}}"> {{key}}
-          </label>
-        </div>
-      </div>
-
 <div class="usuarios-dashboard">
   <app-sidebar></app-sidebar>
   <main class="usuarios-main">
     <section class="usuarios-header-card">
+      <div *ngIf="error" class="error-message">{{error}}</div>
       <div>
-        <h2 class="usuarios-title">Gestión de Usuarios</h2>
-        <p class="usuarios-sub">Administra usuarios, roles y permisos del sistema.</p>
-      </div>
-      <div class="usuarios-actions">
-        <input class="usuarios-search" [(ngModel)]="search" (input)="filtrar()" placeholder="Buscar usuario..." />
-        <button class="btn primary" (click)="abrirModal()">
-          <span class="icon">➕</span> Nuevo Usuario
-        </button>
-      </div>
-    </section>
-
-    <section class="usuarios-table-card">
-      <div *ngIf="loading" class="loader"></div>
-      <table class="usuarios-table" *ngIf="!loading && usuariosFiltrados.length">
-        <thead>
-          <tr>
-            <th>Nombre</th>
-            <th>Usuario</th>
-            <th>Email</th>
-            <th>Acciones</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr *ngFor="let u of usuariosFiltrados; let i = index" [class.alt-row]="i % 2 === 1">
-            <td>{{u.nombre}}</td>
-            <td>{{u.usuario}}</td>
-            <td>{{u.email}}</td>
-            <td>
-              <button class="icon-btn" (click)="abrirModal(u)" title="Editar">✏️</button>
-              <button class="icon-btn danger" (click)="confirmarEliminar(u)" title="Eliminar">🗑️</button>
-            </td>
-          </tr>
-        </tbody>
-      </table>
-      <div *ngIf="!usuariosFiltrados.length && !loading" class="empty-state">
-        <span>Sin usuarios registrados.</span>
+        <button class="btn primary" (click)="abrirModal()">Nuevo Usuario</button>
+        <table class="usuarios-table">
+          <thead>
+            <tr>
+              <th>Nombre</th>
+              <th>Usuario</th>
+              <th>Email</th>
+              <th>Acciones</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let u of usuariosFiltrados; let i = index" [class.alt-row]="i % 2 === 1">
+              <td>{{u.nombre}}</td>
+              <td>{{u.usuario}}</td>
+              <td>{{u.email}}</td>
+              <td>
+                <button class="icon-btn" (click)="abrirModal(u)" title="Editar">✏️</button>
+                <button class="icon-btn danger" (click)="confirmarEliminar(u)" title="Eliminar">🗑️</button>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+        <div *ngIf="!usuariosFiltrados.length && !loading" class="empty-state">
+          <span>Sin usuarios registrados.</span>
+        </div>
       </div>
     </section>
   </main>
@@ -74,40 +36,77 @@
 
 <!-- MODAL USUARIO -->
 <div class="modal-backdrop" *ngIf="mostrarModal" (click)="cerrarModal()"></div>
-<div class="modal animated" *ngIf="mostrarModal">
+
+<div class="modal animated modal-compact" *ngIf="mostrarModal">
   <div class="modal-content" (click)="$event.stopPropagation()">
     <h3 class="modal-title">{{ usuarioForm.id ? 'Editar Usuario' : 'Nuevo Usuario' }}</h3>
-    <form (ngSubmit)="guardarUsuario()">
-      <div class="input-group">
-        <label for="nombre">Nombre</label>
-        <input id="nombre" [(ngModel)]="usuarioForm.nombre" name="nombre" required>
+    <form (ngSubmit)="guardarUsuario()" class="usuario-form-grid">
+      <div class="form-col">
+        <h4 class="form-section-title">Datos personales</h4>
+        <div class="input-group">
+          <label for="nombre">Nombre</label>
+          <input id="nombre" [(ngModel)]="usuarioForm.nombre" name="nombre" required>
+        </div>
+        <div class="input-group">
+          <label for="email">Email</label>
+          <input id="email" [(ngModel)]="usuarioForm.email" name="email" required>
+        </div>
+        <div class="input-group">
+          <label for="grado">Grado</label>
+          <select id="grado" [(ngModel)]="usuarioForm.grado_id" name="grado_id" required>
+            <option value="" disabled selected>Selecciona grado</option>
+            <option *ngFor="let g of grados" [value]="g.id">{{g.nombre}}</option>
+          </select>
+        </div>
       </div>
-      <div class="input-group">
-        <label for="usuario">Usuario</label>
-        <input id="usuario" [(ngModel)]="usuarioForm.usuario" name="usuario" required>
+      <div class="form-col">
+        <h4 class="form-section-title">Acceso y permisos</h4>
+        <div class="input-group">
+          <label for="usuario">Usuario</label>
+          <input id="usuario" [(ngModel)]="usuarioForm.usuario" name="usuario" required>
+        </div>
+        <div class="input-group">
+          <label for="password">Contraseña</label>
+          <input id="password" [(ngModel)]="usuarioForm.password" name="password" type="password" [required]="!usuarioForm.id">
+        </div>
+        <div class="input-group">
+          <label for="unidad">Unidad</label>
+          <input id="unidad" [(ngModel)]="usuarioForm.unidad" name="unidad">
+        </div>
+        <div class="input-group">
+          <label for="nivel_per_uni">Nivel permiso unidad</label>
+          <select id="nivel_per_uni" [(ngModel)]="usuarioForm.nivel_per_uni" name="nivel_per_uni" required>
+            <option value="" disabled selected>Selecciona nivel</option>
+            <option value="EJC">EJC</option>
+            <option value="DIV">DIV</option>
+            <option value="BR">BR</option>
+            <option value="UT">UT</option>
+          </select>
+        </div>
+        <div class="input-group">
+          <label for="unida_per">Unidad permiso</label>
+          <input id="unida_per" [(ngModel)]="usuarioForm.unida_per" name="unida_per">
+        </div>
+        <div class="input-group">
+          <label for="roles">Roles</label>
+          <select id="roles" multiple [(ngModel)]="usuarioForm.roles" name="roles">
+            <option *ngFor="let r of rolesDisponibles" [value]="r.nombre">{{r.nombre}}</option>
+          </select>
+        </div>
       </div>
-      <div class="input-group">
-        <label for="email">Email</label>
-        <input id="email" [(ngModel)]="usuarioForm.email" name="email" required>
+      <div class="form-permisos-full permisos-box">
+        <h4 class="form-section-title">Permisos por página</h4>
+        <div class="permisos-grid">
+          <div class="permiso-row" *ngFor="let p of permisosPaginas">
+            <span class="permiso-pagina-label">{{p.pagina}}</span>
+            <label *ngFor="let key of ['ver','crear','editar','eliminar']" class="permiso-check pretty-check">
+              <input type="checkbox" [(ngModel)]="p[key]" name="{{p.pagina}}-{{key}}">
+              <span class="custom-check"></span> {{key}}
+            </label>
+          </div>
+        </div>
       </div>
-      <div class="input-group">
-        <label for="unidad">Unidad</label>
-        <input id="unidad" [(ngModel)]="usuarioForm.unidad" name="unidad">
-      </div>
-      <div class="input-group">
-        <label for="grado">Grado</label>
-        <select id="grado" [(ngModel)]="usuarioForm.nivel_per_uni" name="grado">
-          <option value="" disabled selected>Selecciona grado</option>
-          <option *ngFor="let g of grados" [value]="g.abreviatura">{{g.nombre}}</option>
-        </select>
-      </div>
-      <div class="input-group">
-        <label for="roles">Roles</label>
-        <select id="roles" multiple [(ngModel)]="usuarioForm.roles" name="roles">
-          <option *ngFor="let r of rolesDisponibles" [value]="r.nombre">{{r.nombre}}</option>
-        </select>
-      </div>
-      <div class="modal-actions">
+      <div class="modal-actions form-actions-full">
         <button class="btn primary" type="submit">{{ usuarioForm.id ? 'Guardar' : 'Crear' }}</button>
         <button class="btn" type="button" (click)="cerrarModal()">Cancelar</button>
       </div>
@@ -115,58 +114,3 @@
   </div>
 </div>
 
-<!-- MODAL CONFIRM -->
-<div class="modal-backdrop" *ngIf="mostrarConfirm"></div>
-<div class="modal animated small" *ngIf="mostrarConfirm">
-  <div class="modal-content" (click)="$event.stopPropagation()">
-    <h3>¿Eliminar usuario?</h3>
-    <div class="modal-actions">
-      <button class="btn danger" (click)="eliminarUsuario()">Sí</button>
-      <button class="btn" (click)="mostrarConfirm=false">No</button>
-    </div>
-  </div>
-</div>
-
-<!-- MODAL -->
-<div class="modal-bg" *ngIf="mostrarModal" (click)="cerrarModal()"></div>
-
-<div class="modal" *ngIf="mostrarModal">
-  <div (click)="$event.stopPropagation()">
-    <h3>Usuario</h3>
-
-    <input [(ngModel)]="usuarioForm.nombre" placeholder="Nombre">
-    <input [(ngModel)]="usuarioForm.usuario" placeholder="Usuario">
-    <input [(ngModel)]="usuarioForm.email" placeholder="Email">
-
-    <input [(ngModel)]="usuarioForm.password" type="password" placeholder="Password">
-
-
-    <input [(ngModel)]="usuarioForm.unidad" placeholder="Unidad">
-
-    <div class="input-group">
-      <label for="grado">Grado</label>
-      <select id="grado" [(ngModel)]="usuarioForm.nivel_per_uni" name="grado">
-        <option value="" disabled selected>Selecciona grado</option>
-        <option *ngFor="let g of grados" [value]="g.abreviatura">{{g.nombre}}</option>
-      </select>
-    </div>
-
-    <div class="input-group">
-      <label for="roles">Roles</label>
-      <select id="roles" multiple [(ngModel)]="usuarioForm.roles" name="roles">
-        <option *ngFor="let r of rolesDisponibles" [value]="r.nombre">{{r.nombre}}</option>
-      </select>
-    </div>
-
-    <button class="btn primary" (click)="guardarUsuario()">Guardar</button>
-  </div>
-</div>
-
-<!-- CONFIRM -->
-<div class="modal-bg" *ngIf="mostrarConfirm"></div>
-
-<div class="modal small" *ngIf="mostrarConfirm">
-  <p>¿Eliminar usuario?</p>
-  <button (click)="eliminarUsuario()">Sí</button>
-  <button (click)="mostrarConfirm=false">No</button>
-</div>

@@ -42,20 +42,23 @@ export class UsuariosComponent implements OnInit {
     this.cargarPaginas();
   }
 
-  cargarGrados() {
-    this.http.get<any[]>(`${environment.apiUrl}/grados`).subscribe({
-      next: (res) => this.grados = res,
-      error: () => this.grados = []
-    });
-  }
+cargarGrados() {
+  this.http.get<any[]>(`${environment.apiUrl_2}/grados`, this.api['headers']()).subscribe({
+    next: (res) => this.grados = res,
+    error: (err) => {
+      console.error(err);
+      this.grados = [];
+    }
+  });
+}
   cargarRoles() {
-    this.http.get<any[]>(`${environment.apiUrl}/roles`).subscribe({
+    this.http.get<any[]>(`${environment.apiUrl_2}/roles`,this.api['headers']()).subscribe({
       next: (res) => this.rolesDisponibles = res,
       error: () => this.rolesDisponibles = []
     });
   }
   cargarPaginas() {
-    this.http.get<any[]>(`${environment.apiUrl}/paginas`).subscribe({
+    this.http.get<any[]>(`${environment.apiUrl_2}/paginas`,this.api['headers']()).subscribe({
       next: (res) => this.paginasDisponibles = res,
       error: () => this.paginasDisponibles = []
     });
@@ -89,6 +92,21 @@ export class UsuariosComponent implements OnInit {
       ? { ...u, password: '' }
       : this.resetForm();
     this.rolesInput = u?.roles?.join(',') || '';
+    // Si grados no está cargado, vuelve a cargar
+    if (!this.grados || this.grados.length === 0) {
+      this.cargarGrados();
+    }
+    // Mapear permisos del backend a la estructura de checkboxes
+    this.permisosPaginas = this.paginasDisponibles.map(p => {
+      const perm = u?.permisos?.[p.ruta] || {};
+      return {
+        pagina: p.ruta,
+        ver: perm.ver ?? false,
+        crear: perm.crear ?? false,
+        editar: perm.editar ?? false,
+        eliminar: perm.eliminar ?? false
+      };
+    });
     this.mostrarModal = true;
   }
 
@@ -101,9 +119,22 @@ export class UsuariosComponent implements OnInit {
     this.usuarioForm.roles = this.rolesInput
       ? this.rolesInput.split(',').map(r => r.trim())
       : [];
+    // Agregar permisos al payload
+    const payload = {
+      ...this.usuarioForm,
+      permisos: this.permisosPaginas.reduce((acc, p) => {
+        acc[p.pagina] = {
+          ver: p.ver,
+          crear: p.crear,
+          editar: p.editar,
+          eliminar: p.eliminar
+        };
+        return acc;
+      }, {})
+    };
     const req = this.usuarioForm.id
-      ? this.api.update(this.usuarioForm)
-      : this.api.create(this.usuarioForm);
+      ? this.api.update(payload)
+      : this.api.create(payload);
     req.subscribe({
       next: () => {
         this.success = 'Guardado correctamente';
@@ -141,7 +172,8 @@ export class UsuariosComponent implements OnInit {
       unidad: '',
       nivel_per_uni: '',
       unida_per: '',
-      roles: []
+      roles: [],
+      grado_id: undefined
     };
   }
 

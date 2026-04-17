@@ -1,3 +1,251 @@
+/* Modal más compacto */
+/* Modal más ancho y menos alto, glassmorphism */
+.modal-compact .modal-content {
+  width: 90vw;
+  max-width: 90vw;
+  min-width: 520px;
+  min-height: 600px;
+  max-height: 90vh;
+  padding: 20px 28px 18px 28px;
+  background: rgba(255,246,246,0.85);
+  box-shadow: 0 8px 32px 0 rgba(80,0,32,0.18);
+  border-radius: 22px;
+  backdrop-filter: blur(12px) saturate(140%);
+  border: 1.5px solid rgba(180,0,32,0.13);
+  overflow-y: auto;
+}
+
+/* Caja de permisos por página más ancha y alineada con 'Nivel permiso unidad' */
+/* Ajuste solicitado: subir más y ocupar 30% del ancho del modal */
+.permisos-box {
+  margin-top: -22% !important;
+  margin-bottom: 12px;
+  background: #fff6f6;
+  border-radius: 1.5px;
+  padding: 18px 18px 10px 18px;
+  box-shadow: 0 2px 12px 0 rgba(123,0,44,0.13), 0 1.5px 6px 0 rgba(123,0,44,0.10);
+  border: 1.5px solid #f3d6de;
+  max-width: 30vw;
+  min-width: 320px;
+  width: 30vw;
+  margin-left: 0;
+}
+
+/* Si quieres que la caja ocupe toda la fila debajo de los campos, usa:
+.permisos-box {
+  grid-column: 1 / span 2;
+  width: 100%;
+  max-width: none;
+}
+*/
+
+.form-permisos-full .form-section-title {
+  margin-bottom: 10px;
+}
+
+/* Grid de permisos más compacto y ordenado */
+.permisos-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.permiso-row {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  margin-bottom: 2px;
+}
+.permiso-pagina-label {
+  min-width: 160px;
+  font-weight: bold;
+  color: #a00;
+  font-size: 1.05em;
+  letter-spacing: 0.5px;
+}
+
+/* Checkbox bonito */
+.pretty-check {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  cursor: pointer;
+  font-size: 1em;
+  margin-right: 10px;
+  user-select: none;
+}
+.pretty-check input[type="checkbox"] {
+  opacity: 0;
+  width: 0;
+  height: 0;
+  position: absolute;
+  
+}
+
+/* Checkbox bonito vinotinto con palomilla grande y centrada */
+.pretty-check .custom-check {
+  width: 26px;
+  height: 26px;
+  border: 2.5px solid #7b002c;
+  border-radius: 6px;
+  background: #fff;
+  margin-right: 7px;
+  display: inline-block;
+  transition: background 0.2s, border-color 0.2s;
+  box-sizing: border-box;
+  position: relative;
+}
+.pretty-check input[type="checkbox"]:checked + .custom-check {
+  background: #7b002c;
+  border-color: #7b002c;
+}
+.pretty-check input[type="checkbox"]:checked + .custom-check:after {
+  content: '';
+  display: block;
+  width: 14px;
+  height: 8px;
+  border-left: 4px solid #fff;
+  border-bottom: 4px solid #fff;
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -60%) rotate(-45deg);
+  border-radius: 1.5px;
+  background: none;
+}
+.pretty-check .custom-check:after {
+  content: '';
+  display: block;
+  width: 14px;
+  height: 14px;
+  margin: 4px auto;
+  background: transparent;
+  border-radius: 2px;
+  transition: background 0.2s;
+}
+.modal.animated {
+  max-width: 540px;
+  width: 96vw;
+  padding: 0;
+  overflow: visible;
+}
+.usuario-form-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  background: #fff;
+  border-radius: 18px;
+  box-shadow: 0 4px 32px #a316161a;
+  padding: 0 0 18px 0;
+  margin: 0;
+}
+.form-row {
+  display: flex;
+  gap: 18px;
+  padding: 18px 28px 0 28px;
+}
+.form-col {
+  flex: 1 1 0%;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  background: none;
+  border-radius: 0;
+  padding: 0;
+  box-shadow: none;
+}
+.form-section-title {
+  margin: 0 0 10px 0;
+  font-size: 1.08rem;
+  color: var(--color-primary);
+  font-weight: 700;
+  letter-spacing: 0.01em;
+}
+.form-permisos-full {
+  margin: 18px 28px 0 28px;
+  background: #fff7f7;
+  border-radius: 10px;
+  padding: 14px 14px 8px 14px;
+  box-shadow: 0 1px 8px #a316160a;
+}
+.form-actions-full {
+  margin: 18px 28px 0 28px;
+  padding-bottom: 10px;
+}
+.input-group {
+  margin-bottom: 8px;
+}
+.input-group label {
+  font-size: 0.98rem;
+}
+.modal-title {
+  padding: 22px 28px 0 28px;
+  margin: 0;
+  font-size: 1.32rem;
+  color: var(--color-primary);
+  font-weight: 700;
+}
+@media (max-width: 700px) {
+  .modal.animated {
+    max-width: 99vw;
+    padding: 0;
+  }
+  .form-row, .form-permisos-full, .form-actions-full {
+    margin-left: 6px;
+    margin-right: 6px;
+    padding-left: 4px;
+    padding-right: 4px;
+  }
+}
+.usuario-form-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 32px 28px;
+  margin-top: 8px;
+  align-items: flex-start;
+}
+.form-col {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  background: #fff7f7;
+  border-radius: 12px;
+  padding: 18px 18px 12px 18px;
+  box-shadow: 0 2px 12px #a316160a;
+}
+.form-section-title {
+  margin: 0 0 10px 0;
+  font-size: 1.08rem;
+  color: var(--color-primary);
+  font-weight: 700;
+  letter-spacing: 0.01em;
+}
+.form-permisos-full {
+  grid-column: 1 / span 2;
+  background: #fff7f7;
+  border-radius: 12px;
+  padding: 18px 18px 10px 18px;
+  margin-top: 8px;
+  box-shadow: 0 2px 12px #a316160a;
+}
+.usuario-form-grid {
+  align-items: start;
+}
+.form-actions-full {
+  grid-column: 1 / span 2;
+  display: flex;
+  justify-content: flex-end;
+  gap: 16px;
+  margin-top: 18px;
+}
+@media (max-width: 900px) {
+  .usuario-form-grid {
+    grid-template-columns: 1fr;
+    gap: 18px;
+  }
+  .form-permisos-full, .form-actions-full {
+    grid-column: 1 / span 1;
+  }
+}
 .permiso-row {
   display: flex;
   align-items: center;
@@ -21,7 +269,6 @@
   width: 16px;
   height: 16px;
 }
-/* ...existing code... */
 :host {
   --color-primary: #a31616;
   --color-bg: #fff7f7;
@@ -322,4 +569,15 @@ th, td {
 .modal.small {
   width: 250px;
   text-align: center;
+}
+.error-message {
+  color: #a31616;
+  background: #fff0f0;
+  border: 1.5px solid #e5bcbc;
+  border-radius: 8px;
+  padding: 12px 18px;
+  margin-bottom: 18px;
+  font-weight: 600;
+  text-align: center;
+  font-size: 1.08rem;
 }

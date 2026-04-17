@@ -9,10 +9,19 @@ export interface Usuario {
   usuario: string;
   password?: string;
   email: string;
-  unidad?: string;
-  nivel_per_uni?: string;
-  unida_per?: string;
-  roles?: string[];
+  unidad: string;
+  nivel_per_uni: string;
+  unida_per: string;
+  roles: string[];
+  grado_id?: number;
+  permisos?: {
+    [pagina: string]: {
+      ver?: boolean;
+      crear?: boolean;
+      editar?: boolean;
+      eliminar?: boolean;
+    }
+  };
 }
 
 @Injectable({ providedIn: 'root' })
