@@ -1,0 +1,115 @@
+<div class="login-container">
+  <div class="background-shape background-shape-left"></div>
+  <div class="background-shape background-shape-right"></div>
+
+  <section class="login-shell" aria-labelledby="login-title">
+    <article class="info-panel">
+      <div class="logo-row">
+        <img class="logo" src="assets/jemop.png" alt="Logo ESDOP">
+        <div>
+          <p class="eyebrow">Direccion de Operaciones</p>
+          <h1 id="login-title" class="titulo">ESDOP</h1>
+        </div>
+      </div>
+
+      <p class="subtitulo">
+        Plataforma institucional para consulta, seguimiento y administracion de informacion operativa.
+      </p>
+
+      <div class="info-box">
+        <p class="info-kicker">Informacion de interes</p>
+        <div class="info-list">
+          <article class="info-item" *ngFor="let punto of puntosInteres">
+            <h2>{{ punto.titulo }}</h2>
+            <p>{{ punto.descripcion }}</p>
+          </article>
+        </div>
+      </div>
+
+      <div class="support-card">
+        <p class="support-title">Acceso institucional</p>
+        <p>
+          Usa tus credenciales asignadas. Si presentas novedades de acceso, reportalas por el canal interno de soporte.
+        </p>
+      </div>
+    </article>
+
+    <article class="login-card">
+      <div class="login-card-header">
+        <p class="eyebrow eyebrow-login">Ingreso seguro</p>
+        <h2 class="login-title">Iniciar sesion</h2>
+        <p class="login-copy">Ingresa para consultar el entorno de trabajo autorizado.</p>
+      </div>
+
+      <form (ngSubmit)="login()" #loginForm="ngForm">
+        <div class="input-group">
+          <label for="usuario">Usuario</label>
+          <input
+            id="usuario"
+            type="text"
+            [(ngModel)]="usuario"
+            name="usuario"
+            placeholder="Ingresa tu usuario"
+            autocomplete="username"
+            required>
+        </div>
+
+        <div class="input-group">
+          <label for="password">Contrasena</label>
+          <div class="password-box">
+            <input
+              id="password"
+              [type]="verPassword ? 'text' : 'password'"
+              [(ngModel)]="password"
+              name="password"
+              placeholder="Ingresa tu contrasena"
+              autocomplete="current-password"
+              required>
+
+            <button type="button" class="password-toggle" (click)="togglePassword()">
+              {{ verPassword ? 'Ocultar' : 'Ver' }}
+            </button>
+          </div>
+        </div>
+
+        <p class="error" *ngIf="error">{{ error }}</p>
+
+        <button class="btn-login" type="submit" [disabled]="cargando || loginForm.invalid">
+          {{ cargando ? 'Ingresando...' : 'Ingresar' }}
+        </button>
+      </form>
+
+      <button type="button" class="legal-trigger" (click)="mostrarReservaLegal = true">
+        Ver reserva legal y tratamiento de la informacion
+      </button>
+    </article>
+  </section>
+
+  <section class="legal-modal-backdrop" *ngIf="mostrarReservaLegal">
+    <article class="legal-modal" aria-labelledby="legal-title" aria-modal="true" role="dialog">
+      <p class="eyebrow eyebrow-legal">Reserva legal</p>
+      <h2 id="legal-title">Uso autorizado y proteccion de informacion</h2>
+      <p class="legal-copy">
+        La informacion consultada y registrada en este sistema es de uso institucional y puede contener datos sujetos a
+        reserva, circulacion restringida o proteccion legal. Su acceso, tratamiento, conservacion y uso deben ajustarse
+        a las funciones autorizadas y a los deberes de confidencialidad aplicables.
+      </p>
+
+      <div class="legal-reference-list">
+        <p class="legal-reference-title">Marco normativo de referencia</p>
+        <ul>
+          <li *ngFor="let fundamento of fundamentosLegales">{{ fundamento }}</li>
+        </ul>
+      </div>
+
+      <p class="legal-copy legal-copy-secondary">
+        El acceso no autorizado, la divulgacion indebida, la alteracion o el uso por fuera de las finalidades
+        institucionales puede generar consecuencias disciplinarias, administrativas y penales.
+      </p>
+
+      <div class="legal-actions">
+        <button type="button" class="btn-login" (click)="cerrarReservaLegal()">Entendido</button>
+      </div>
+    </article>
+  </section>
+</div>

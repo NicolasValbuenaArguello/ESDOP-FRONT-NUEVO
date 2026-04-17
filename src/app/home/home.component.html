@@ -1,0 +1,35 @@
+﻿<div class="home-layout" [class.sidebar-hidden]="!sidebarVisible">
+  <app-sidebar *ngIf="sidebarVisible" (ocultar)="toggleSidebar()"></app-sidebar>
+
+  <main class="home-content" *ngIf="page$ | async as page">
+    <header class="topbar">
+      <button type="button" class="sidebar-toggle" (click)="toggleSidebar()">
+        {{ sidebarVisible ? 'Ocultar menu' : 'Mostrar menu' }}
+      </button>
+    </header>
+
+    <section class="hero-panel">
+      <p class="eyebrow">ESDOP</p>
+      <h1>{{ page['nombre'] || 'Home' }}</h1>
+      <p>{{ page['descripcion'] || 'Panel principal del sistema.' }}</p>
+    </section>
+
+    <section class="quick-grid" aria-label="Resumen operativo">
+      <article class="metric-card" *ngFor="let item of resumen">
+        <span>{{ item.etiqueta }}</span>
+        <strong>{{ item.valor }}</strong>
+        <p>{{ item.detalle }}</p>
+      </article>
+    </section>
+
+    <section class="work-panel">
+      <div>
+        <p class="eyebrow">Accesos</p>
+        <h2>Menu principal</h2>
+        <p>Selecciona una opcion del menu lateral para consultar o gestionar informacion del sistema.</p>
+      </div>
+
+      <a class="primary-link" routerLink="/usuarios/listado">Ver usuarios</a>
+    </section>
+  </main>
+</div>

@@ -1,0 +1,46 @@
+﻿<aside class="sidebar" aria-label="Menu principal">
+  <div class="sidebar-actions">
+    <button type="button" class="hide-button" (click)="ocultarSidebar()">Ocultar</button>
+  </div>
+
+  <div class="brand-block">
+    <img src="assets/jemop.png" alt="Logo ESDOP">
+    <div>
+      <span>MenuE</span>
+      <strong>ESDOP</strong>
+    </div>
+  </div>
+
+  <div class="user-card">
+    <span>Sesion iniciada</span>
+    <strong>{{ usuario }}</strong>
+    <small [title]="unidad">{{ unidad }}</small>
+  </div>
+
+  <nav class="menu-list">
+    <section class="menu-group" *ngFor="let grupo of grupos">
+      <button
+        type="button"
+        class="menu-header"
+        [class.menu-header-active]="estaAbierto(grupo.menu)"
+        [attr.aria-expanded]="estaAbierto(grupo.menu)"
+        (click)="toggleMenu(grupo.menu)">
+        <span>{{ grupo.menu }}</span>
+        <span class="chevron" [class.chevron-open]="estaAbierto(grupo.menu)">v</span>
+      </button>
+
+      <div class="submenu" *ngIf="estaAbierto(grupo.menu)">
+        <a
+          *ngFor="let pagina of grupo.paginas"
+          [routerLink]="pagina.ruta"
+          routerLinkActive="active-link"
+          [routerLinkActiveOptions]="{ exact: true }">
+          <span>{{ pagina.nombre }}</span>
+          <small>{{ pagina.descripcion }}</small>
+        </a>
+      </div>
+    </section>
+  </nav>
+
+  <button type="button" class="logout-button" (click)="logout()">Cerrar sesion</button>
+</aside>
