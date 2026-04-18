@@ -1,46 +1,148 @@
-﻿<aside class="sidebar" aria-label="Menu principal">
-  <div class="sidebar-actions">
-    <button type="button" class="hide-button" (click)="ocultarSidebar()">Ocultar</button>
-  </div>
+﻿<aside class="sidebar" [class.sidebar-compact]="compacto" aria-label="Menú principal">
+  <div class="sidebar-glow sidebar-glow-top" aria-hidden="true"></div>
+  <div class="sidebar-glow sidebar-glow-bottom" aria-hidden="true"></div>
 
-  <div class="brand-block">
-    <img src="assets/jemop.png" alt="Logo ESDOP">
-    <div>
-      <span>MenuE</span>
-      <strong>ESDOP</strong>
+  <div class="sidebar-topbar">
+    <a
+      class="brand-link"
+      [routerLink]="inicio.ruta"
+      [class.brand-link-active]="estaRutaActiva(inicio.ruta)">
+      <span class="brand-logo">
+        <img src="assets/jemop.png" alt="Logo ESDOP" width="28" height="28" loading="lazy">
+      </span>
+      <span class="brand-copy" *ngIf="!compacto">
+        <strong>ESDOP</strong>
+        <small>Panel operativo</small>
+      </span>
+    </a>
+
+    <div class="topbar-actions">
+      <button type="button" class="icon-button" (click)="toggleCompacto()" [attr.aria-label]="compacto ? 'Expandir menú' : 'Colapsar menú'">
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M4 7h16"></path>
+          <path d="M4 12h10"></path>
+          <path d="M4 17h16"></path>
+        </svg>
+      </button>
+      <button type="button" class="icon-button" (click)="ocultarSidebar()" aria-label="Ocultar panel">
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M15 6l-6 6 6 6"></path>
+        </svg>
+      </button>
     </div>
   </div>
 
-  <div class="user-card">
-    <span>Sesion iniciada</span>
-    <strong>{{ usuario }}</strong>
-    <small [title]="unidad">{{ unidad }}</small>
+  <div class="sidebar-search" *ngIf="!compacto">
+    <span class="search-icon" aria-hidden="true">
+      <svg viewBox="0 0 24 24">
+        <circle cx="11" cy="11" r="6"></circle>
+        <path d="m20 20-3.5-3.5"></path>
+      </svg>
+    </span>
+    <span class="search-copy">Menu principal</span>
+  </div>
+
+  <div class="user-card" [class.user-card-compact]="compacto">
+    <span class="user-avatar">{{ obtenerIniciales(usuario) }}</span>
+    <div class="user-copy" *ngIf="!compacto">
+      <span>Sesión activa</span>
+      <strong>{{ usuario }}</strong>
+      <small [title]="unidad">{{ unidad }}</small>
+    </div>
   </div>
 
   <nav class="menu-list">
-    <section class="menu-group" *ngFor="let grupo of grupos">
+    <a
+      class="menu-link direct-link"
+      [class.menu-link-active]="estaRutaActiva(inicio.ruta)"
+      [routerLink]="inicio.ruta"
+      routerLinkActive="menu-link-active"
+      [routerLinkActiveOptions]="{ exact: true }"
+      aria-label="Inicio">
+      <span class="menu-icon">
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M4 10.5 12 4l8 6.5"></path>
+          <path d="M6.5 9.5V20h11V9.5"></path>
+          <path d="M10 20v-5h4v5"></path>
+        </svg>
+      </span>
+      <span class="menu-copy" *ngIf="!compacto">
+        <strong>{{ inicio.nombre }}</strong>
+        <small>{{ inicio.descripcion }}</small>
+      </span>
+      <span class="menu-state" *ngIf="!compacto && estaRutaActiva(inicio.ruta)">Activo</span>
+    </a>
+
+    <section
+      class="menu-group"
+      *ngFor="let grupo of grupos"
+      [class.menu-group-open]="estaAbierto(grupo.menu)"
+      [class.menu-group-active]="grupoTieneRutaActiva(grupo)">
       <button
         type="button"
-        class="menu-header"
-        [class.menu-header-active]="estaAbierto(grupo.menu)"
+        class="menu-trigger"
+        [class.menu-trigger-active]="grupoTieneRutaActiva(grupo)"
         [attr.aria-expanded]="estaAbierto(grupo.menu)"
+        [attr.aria-label]="grupo.menu"
         (click)="toggleMenu(grupo.menu)">
-        <span>{{ grupo.menu }}</span>
-        <span class="chevron" [class.chevron-open]="estaAbierto(grupo.menu)">v</span>
+        <span class="menu-icon">
+          <svg *ngIf="grupo.icono === 'users'" viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M16 19v-1a4 4 0 0 0-4-4H7a4 4 0 0 0-4 4v1"></path>
+            <circle cx="9.5" cy="7" r="3"></circle>
+            <path d="M20 19v-1a4 4 0 0 0-3-3.87"></path>
+            <path d="M14 4.2a3 3 0 0 1 0 5.6"></path>
+          </svg>
+          <svg *ngIf="grupo.icono === 'chart'" viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M4 19h16"></path>
+            <path d="M7 16V9"></path>
+            <path d="M12 16V5"></path>
+            <path d="M17 16v-7"></path>
+          </svg>
+          <svg *ngIf="grupo.icono === 'settings'" viewBox="0 0 24 24" aria-hidden="true">
+            <circle cx="12" cy="12" r="3"></circle>
+            <path d="M19.4 15a1.7 1.7 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06A1.7 1.7 0 0 0 15 19.4a1.7 1.7 0 0 0-1 .6 1.7 1.7 0 0 1-2 0 1.7 1.7 0 0 0-1-.6 1.7 1.7 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06A1.7 1.7 0 0 0 4.6 15a1.7 1.7 0 0 0-.6-1 1.7 1.7 0 0 1 0-2 1.7 1.7 0 0 0 .6-1 1.7 1.7 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06A1.7 1.7 0 0 0 9 4.6a1.7 1.7 0 0 0 1-.6 1.7 1.7 0 0 1 2 0 1.7 1.7 0 0 0 1 .6 1.7 1.7 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06A1.7 1.7 0 0 0 19.4 9c0 .38.22.74.6 1a1.7 1.7 0 0 1 0 2c-.38.26-.6.62-.6 1Z"></path>
+          </svg>
+        </span>
+
+        <span class="menu-copy" *ngIf="!compacto">
+          <strong>{{ grupo.menu }}</strong>
+          <small>{{ grupo.paginas.length }} submenú</small>
+        </span>
+
+        <span class="menu-trailing" *ngIf="!compacto">
+          <span class="menu-state" *ngIf="grupoTieneRutaActiva(grupo)">Activo</span>
+          <span class="chevron" [class.chevron-open]="estaAbierto(grupo.menu)">⌄</span>
+        </span>
       </button>
 
-      <div class="submenu" *ngIf="estaAbierto(grupo.menu)">
+      <div class="submenu" *ngIf="estaAbierto(grupo.menu) && !compacto">
         <a
           *ngFor="let pagina of grupo.paginas"
+          class="submenu-link"
+          [class.submenu-link-active]="estaRutaActiva(pagina.ruta)"
           [routerLink]="pagina.ruta"
-          routerLinkActive="active-link"
+          routerLinkActive="submenu-link-active"
           [routerLinkActiveOptions]="{ exact: true }">
-          <span>{{ pagina.nombre }}</span>
-          <small>{{ pagina.descripcion }}</small>
+          <span class="submenu-dot"></span>
+          <span class="submenu-copy">
+            <strong>{{ pagina.nombre }}</strong>
+            <small>{{ pagina.descripcion }}</small>
+          </span>
         </a>
       </div>
     </section>
   </nav>
 
-  <button type="button" class="logout-button" (click)="logout()">Cerrar sesion</button>
+  <div class="sidebar-footer">
+    <button type="button" class="logout-button" (click)="logout()">
+      <span class="menu-icon">
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+          <path d="M16 17l5-5-5-5"></path>
+          <path d="M21 12H9"></path>
+        </svg>
+      </span>
+      <span *ngIf="!compacto">Cerrar sesión</span>
+    </button>
+  </div>
 </aside>

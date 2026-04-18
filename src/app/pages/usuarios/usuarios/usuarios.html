@@ -1,34 +1,99 @@
 <div class="usuarios-dashboard">
   <app-sidebar></app-sidebar>
   <main class="usuarios-main">
-    <section class="usuarios-header-card">
+    <section class="usuarios-hero">
+      <div class="usuarios-hero-copy">
+        <p class="usuarios-kicker">Administracion</p>
+        <h1 class="usuarios-title">Gestion de usuarios</h1>
+        <p class="usuarios-sub">Administra accesos, datos basicos y permisos sin salir del mismo panel.</p>
+      </div>
+      <div class="usuarios-summary">
+        <div class="summary-card">
+          <span class="summary-label">Registros</span>
+          <strong class="summary-value">{{usuarios.length}}</strong>
+        </div>
+        <div class="summary-card">
+          <span class="summary-label">Visibles</span>
+          <strong class="summary-value">{{usuariosFiltrados.length}}</strong>
+        </div>
+      </div>
+    </section>
+
+    <section class="usuarios-table-card">
+      <div class="usuarios-toolbar">
+        <div class="usuarios-toolbar-copy">
+          <h2 class="usuarios-section-title">Listado de usuarios</h2>
+          <p class="usuarios-section-sub">Consulta, filtra y edita usuarios activos desde una sola vista.</p>
+        </div>
+        <div class="usuarios-actions">
+          <label class="search-field" for="usuarios-search">
+            <span class="search-label">Buscar</span>
+            <input
+              id="usuarios-search"
+              class="usuarios-search"
+              [(ngModel)]="search"
+              (ngModelChange)="filtrar()"
+              name="usuarios_search"
+              placeholder="Nombre o usuario"
+            >
+          </label>
+          <button class="btn primary" (click)="abrirModal()">Nuevo usuario</button>
+        </div>
+      </div>
+
       <div *ngIf="error" class="error-message">{{error}}</div>
-      <div>
-        <button class="btn primary" (click)="abrirModal()">Nuevo Usuario</button>
+      <div *ngIf="success" class="success-message">{{success}}</div>
+
+      <div *ngIf="loading" class="loader"></div>
+
+      <div class="table-shell" *ngIf="!loading">
         <table class="usuarios-table">
           <thead>
             <tr>
               <th>Nombre</th>
               <th>Usuario</th>
               <th>Email</th>
+              <th>Unidad</th>
+              <th>Roles</th>
               <th>Acciones</th>
             </tr>
           </thead>
           <tbody>
             <tr *ngFor="let u of usuariosFiltrados; let i = index" [class.alt-row]="i % 2 === 1">
-              <td>{{u.nombre}}</td>
+              <td>
+                <div class="user-cell">
+                  <span class="user-avatar">{{u.nombre.charAt(0)}}</span>
+                  <div>
+                    <strong class="user-name">{{u.nombre}}</strong>
+                    <span class="user-meta">{{u.nivel_per_uni || 'Sin nivel'}}</span>
+                  </div>
+                </div>
+              </td>
               <td>{{u.usuario}}</td>
               <td>{{u.email}}</td>
+              <td>{{u.unidad || 'Sin unidad'}}</td>
               <td>
-                <button class="icon-btn" (click)="abrirModal(u)" title="Editar">✏️</button>
-                <button class="icon-btn danger" (click)="confirmarEliminar(u)" title="Eliminar">🗑️</button>
+                <div class="roles-list" *ngIf="u.roles.length; else sinRoles">
+                  <span class="role-badge" *ngFor="let rol of u.roles">{{rol}}</span>
+                </div>
+                <ng-template #sinRoles>
+                  <span class="muted-text">Sin roles</span>
+                </ng-template>
+              </td>
+              <td>
+                <div class="table-actions">
+                  <button class="icon-btn" (click)="abrirModal(u)" title="Editar">Editar</button>
+                  <button class="icon-btn" (click)="abrirPermisos(u)" title="Permisos">Permisos</button>
+                  <button class="icon-btn danger" (click)="confirmarEliminar(u)" title="Eliminar">Eliminar</button>
+                </div>
               </td>
             </tr>
           </tbody>
         </table>
-        <div *ngIf="!usuariosFiltrados.length && !loading" class="empty-state">
-          <span>Sin usuarios registrados.</span>
-        </div>
+      </div>
+
+      <div *ngIf="!usuariosFiltrados.length && !loading" class="empty-state">
+        <span>No hay usuarios para mostrar con el filtro actual.</span>
       </div>
     </section>
   </main>
@@ -39,10 +104,25 @@
 
 <div class="modal animated modal-compact" *ngIf="mostrarModal">
   <div class="modal-content" (click)="$event.stopPropagation()">
-    <h3 class="modal-title">{{ usuarioForm.id ? 'Editar Usuario' : 'Nuevo Usuario' }}</h3>
+    <div class="modal-head">
+      <div class="modal-head-copy">
+        <p class="modal-kicker">Usuarios</p>
+        <h3 class="modal-title">{{ usuarioForm.id ? 'Editar usuario' : 'Nuevo usuario' }}</h3>
+        <p class="modal-subtitle">
+          {{ usuarioForm.id ? 'Actualiza los datos de acceso y la configuracion del usuario.' : 'Crea un nuevo usuario y deja listos sus accesos, roles y permisos.' }}
+        </p>
+      </div>
+      <div class="modal-head-side">
+        <span class="mode-badge">{{ usuarioForm.id ? 'Edicion' : 'Alta' }}</span>
+        <button class="modal-close" type="button" (click)="cerrarModal()">Cerrar</button>
+      </div>
+    </div>
     <form (ngSubmit)="guardarUsuario()" class="usuario-form-grid">
       <div class="form-col">
-        <h4 class="form-section-title">Datos personales</h4>
+        <div class="form-section-head">
+          <h4 class="form-section-title">Datos personales</h4>
+          <p class="form-section-subtitle">Informacion principal para identificar al usuario.</p>
+        </div>
         <div class="input-group">
           <label for="nombre">Nombre</label>
           <input id="nombre" [(ngModel)]="usuarioForm.nombre" name="nombre" required>
@@ -53,14 +133,23 @@
         </div>
         <div class="input-group">
           <label for="grado">Grado</label>
-          <select id="grado" [(ngModel)]="usuarioForm.grado_id" name="grado_id" required>
-            <option value="" disabled selected>Selecciona grado</option>
-            <option *ngFor="let g of grados" [value]="g.id">{{g.nombre}}</option>
+          <select id="grado" [(ngModel)]="usuarioForm.grado_id" name="grado_id">
+            <option [ngValue]="undefined">Selecciona grado</option>
+            <option *ngFor="let g of grados" [ngValue]="g.id">{{g.nombre}} ({{g.abreviatura}})</option>
           </select>
+          <small *ngIf="errorGrados" class="error-message">{{errorGrados}}</small>
+        </div>
+        <div class="input-group">
+          <label>Permisos por pagina</label>
+          <p class="form-section-subtitle">Abre una ventana emergente para definir accesos por modulo.</p>
+          <button class="btn" type="button" (click)="abrirPermisosModal()">Configurar permisos</button>
         </div>
       </div>
       <div class="form-col">
-        <h4 class="form-section-title">Acceso y permisos</h4>
+        <div class="form-section-head">
+          <h4 class="form-section-title">Acceso y permisos</h4>
+          <p class="form-section-subtitle">Credenciales, unidad y perfil operativo del usuario.</p>
+        </div>
         <div class="input-group">
           <label for="usuario">Usuario</label>
           <input id="usuario" [(ngModel)]="usuarioForm.usuario" name="usuario" required>
@@ -92,25 +181,73 @@
           <select id="roles" multiple [(ngModel)]="usuarioForm.roles" name="roles">
             <option *ngFor="let r of rolesDisponibles" [value]="r.nombre">{{r.nombre}}</option>
           </select>
-        </div>
-      </div>
-      <div class="form-permisos-full permisos-box">
-        <h4 class="form-section-title">Permisos por página</h4>
-        <div class="permisos-grid">
-          <div class="permiso-row" *ngFor="let p of permisosPaginas">
-            <span class="permiso-pagina-label">{{p.pagina}}</span>
-            <label *ngFor="let key of ['ver','crear','editar','eliminar']" class="permiso-check pretty-check">
-              <input type="checkbox" [(ngModel)]="p[key]" name="{{p.pagina}}-{{key}}">
-              <span class="custom-check"></span> {{key}}
-            </label>
-          </div>
+          <small class="field-hint">Usa Ctrl o Cmd para seleccionar varios roles.</small>
         </div>
       </div>
       <div class="modal-actions form-actions-full">
-        <button class="btn primary" type="submit">{{ usuarioForm.id ? 'Guardar' : 'Crear' }}</button>
+        <button class="btn primary" type="submit">{{ usuarioForm.id ? 'Guardar cambios' : 'Crear usuario' }}</button>
         <button class="btn" type="button" (click)="cerrarModal()">Cancelar</button>
       </div>
     </form>
+  </div>
+</div>
+
+<div class="modal-backdrop" *ngIf="mostrarModal && mostrarPermisos" (click)="cerrarPermisosModal()"></div>
+
+<div class="modal animated modal-compact permissions-modal" *ngIf="mostrarModal && mostrarPermisos">
+  <div class="modal-content permissions-dialog" (click)="$event.stopPropagation()">
+    <div class="form-section-head permisos-head">
+      <div>
+        <p class="modal-kicker">Permisos</p>
+        <h4 class="form-section-title">Permisos por pagina</h4>
+        <p class="form-section-subtitle">Define acciones disponibles por modulo para este usuario.</p>
+      </div>
+      <div class="permissions-head-actions">
+        <span class="permisos-pill">{{permisosPaginas.length}} paginas</span>
+        <button class="modal-close" type="button" (click)="cerrarPermisosModal()">Cerrar</button>
+      </div>
+    </div>
+    <div class="permisos-grid">
+      <div class="permiso-row" *ngFor="let p of permisosPaginas" [class.permiso-row-active]="tienePermisosActivos(p)">
+        <span class="permiso-pagina-label">{{p.pagina}}</span>
+        <label class="permiso-check pretty-check" [class.pretty-check-active]="p.ver">
+          <input type="checkbox" [(ngModel)]="p.ver" name="{{p.pagina}}-ver">
+          <span class="custom-check"></span> ver
+        </label>
+        <label class="permiso-check pretty-check" [class.pretty-check-active]="p.crear">
+          <input type="checkbox" [(ngModel)]="p.crear" name="{{p.pagina}}-crear">
+          <span class="custom-check"></span> crear
+        </label>
+        <label class="permiso-check pretty-check" [class.pretty-check-active]="p.editar">
+          <input type="checkbox" [(ngModel)]="p.editar" name="{{p.pagina}}-editar">
+          <span class="custom-check"></span> editar
+        </label>
+        <label class="permiso-check pretty-check" [class.pretty-check-active]="p.eliminar">
+          <input type="checkbox" [(ngModel)]="p.eliminar" name="{{p.pagina}}-eliminar">
+          <span class="custom-check"></span> eliminar
+        </label>
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn primary" type="button" (click)="cerrarPermisosModal()">Listo</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-backdrop" *ngIf="mostrarConfirm" (click)="cancelarEliminar()"></div>
+
+<div class="modal animated modal-compact" *ngIf="mostrarConfirm">
+  <div class="modal-content" (click)="$event.stopPropagation()">
+    <div class="form-section-head">
+      <p class="modal-kicker">Confirmacion</p>
+      <h4 class="form-section-title">Eliminar usuario</h4>
+      <p class="form-section-subtitle">Esta accion eliminara el usuario seleccionado del sistema.</p>
+    </div>
+    <p class="form-section-subtitle"><strong>{{ usuarioAEliminar?.nombre }}</strong> · {{ usuarioAEliminar?.usuario }}</p>
+    <div class="modal-actions">
+      <button class="icon-btn danger" type="button" (click)="eliminarUsuario()">Confirmar eliminar</button>
+      <button class="btn" type="button" (click)="cancelarEliminar()">Cancelar</button>
+    </div>
   </div>
 </div>
 

@@ -1,0 +1,325 @@
+<div class="stats-layout" [class.sidebar-hidden]="!sidebarVisible">
+  <app-sidebar *ngIf="sidebarVisible" (ocultar)="toggleSidebar()"></app-sidebar>
+
+  <main class="stats-main">
+    <header class="stats-topbar">
+      <button type="button" class="sidebar-toggle" (click)="toggleSidebar()">
+        {{ sidebarVisible ? 'Ocultar menu' : 'Mostrar menu' }}
+      </button>
+
+      <nav class="stats-nav" aria-label="Navegacion estadistica">
+        <button
+          *ngFor="let tab of tabs"
+          type="button"
+          class="stats-nav-button"
+          [class.stats-nav-button-active]="activeTab === tab.key"
+          (click)="setTab(tab.key)">
+          {{ tab.label }}
+        </button>
+      </nav>
+    </header>
+
+    <section class="stats-board" [class.stats-board-map-focus]="isMapFullscreen">
+      <aside class="stats-side">
+        <article class="stats-card stats-card-highlight">
+          <span class="card-kicker">Resumen</span>
+          <strong>{{ currentCards[0].value }}</strong>
+          <p>{{ currentCards[0].title }}</p>
+          <small>{{ currentCards[0].detail }}</small>
+        </article>
+
+        <article class="stats-card" *ngFor="let card of currentCards.slice(1)">
+          <span class="card-kicker">Indicador</span>
+          <strong>{{ card.value }}</strong>
+          <p>{{ card.title }}</p>
+          <small>{{ card.detail }}</small>
+        </article>
+      </aside>
+
+      <section #mapPanel class="map-panel" [class.map-panel-fullscreen]="isMapFullscreen">
+        <div class="map-toolbar">
+          <div class="map-toolbar-group">
+            <span class="map-chip">Mapa digital</span>
+            <span class="map-chip soft">Capas: calles, topografico, claro y satelital</span>
+            <span class="map-chip soft">{{ cursorCoordinates }}</span>
+            <span class="map-chip soft" [class.map-chip-alert]="measureModeEnabled">{{ measurementSummary }}</span>
+          </div>
+
+          <div class="map-toolbar-group map-toolbar-actions">
+            <button type="button" class="map-action-button" [class.map-action-button-active]="textModeEnabled" (click)="toggleTextMode()">
+              {{ textModeEnabled ? 'Cancelar texto' : 'Crear texto' }}
+            </button>
+            <button type="button" class="map-action-button" [class.map-action-button-active]="measureModeEnabled" (click)="toggleMeasureMode()">
+              {{ measureModeEnabled ? 'Salir de medir' : 'Medir distancia' }}
+            </button>
+            <button type="button" class="map-action-button" (click)="clearMeasurement()">
+              Limpiar medida
+            </button>
+            <button type="button" class="map-action-button" (click)="abrirCoordenadasModal()">
+              Punto por coordenadas
+            </button>
+            <button type="button" class="map-action-button" (click)="exportDrawnData()">
+              Descargar KML
+            </button>
+            <button type="button" class="map-action-button" (click)="toggleFullscreen()">
+              {{ isMapFullscreen ? 'Salir de pantalla completa' : 'Pantalla completa' }}
+            </button>
+          </div>
+        </div>
+
+        <div #leafletMap class="digital-map" [class.text-mode-active]="textModeEnabled" [class.measure-mode-active]="measureModeEnabled" aria-label="Mapa digital operativo"></div>
+      </section>
+
+      <aside class="stats-side stats-side-right">
+        <article class="chart-card">
+          <div class="chart-head">
+            <div>
+              <span class="card-kicker">Graficas</span>
+              <h2>Comparativo territorial</h2>
+            </div>
+            <span class="chart-badge">3 series</span>
+          </div>
+
+          <div class="chart-bars">
+            <div class="chart-row" *ngFor="let item of currentBars">
+              <span>{{ item.label }}</span>
+              <div class="chart-track">
+                <div class="chart-fill" [style.width.%]="item.value"></div>
+              </div>
+              <strong>{{ item.value }}%</strong>
+            </div>
+          </div>
+        </article>
+
+        <article class="chart-card compact">
+          <span class="card-kicker">Cuadros</span>
+          <h2>Lectura ejecutiva</h2>
+          <ul class="insight-list">
+            <li>Mayor concentracion de eventos en el corredor central.</li>
+            <li>La capa activa cambia segun el menu superior seleccionado.</li>
+            <li>Espacio reservado para graficas y cuadros de mando adicionales.</li>
+          </ul>
+        </article>
+      </aside>
+    </section>
+  </main>
+</div>
+
+<div class="map-modal-backdrop" *ngIf="mostrarCoordenadasModal" (click)="cerrarCoordenadasModal()">
+  <section class="map-modal" (click)="$event.stopPropagation()">
+    <div class="map-modal-head">
+      <div class="map-modal-title-block">
+        <span class="card-kicker">Coordenadas</span>
+        <h2>Graficar punto manual</h2>
+        <p class="map-modal-text">Selecciona el sistema de coordenadas y completa los datos. El punto se agregara al mapa y quedara listo para exportacion.</p>
+      </div>
+
+      <button type="button" class="map-modal-close" (click)="cerrarCoordenadasModal()">Cerrar</button>
+    </div>
+
+    <div class="coordinate-system-switch">
+      <button
+        type="button"
+        class="coordinate-system-button"
+        [class.coordinate-system-button-active]="coordinateSystem === 'decimal'"
+        (click)="cambiarSistemaCoordenadas('decimal')">
+        Decimal
+      </button>
+      <button
+        type="button"
+        class="coordinate-system-button"
+        [class.coordinate-system-button-active]="coordinateSystem === 'dms'"
+        (click)="cambiarSistemaCoordenadas('dms')">
+        Grados Minutos Segundos
+      </button>
+    </div>
+
+    <div class="coordinate-system-note">
+      <strong>{{ coordinateSystem === 'decimal' ? 'Entrada decimal' : 'Entrada GMS' }}</strong>
+      <span>
+        {{ coordinateSystem === 'decimal'
+          ? 'Usa latitud y longitud en grados decimales, por ejemplo 4.7110 y -74.0721.'
+          : 'Ingresa grados, minutos, segundos y hemisferio para convertir automaticamente al punto en el mapa.' }}
+      </span>
+    </div>
+
+    <form class="coordinate-modal-form" (ngSubmit)="plotCoordinate()">
+      <ng-container *ngIf="coordinateSystem === 'decimal'; else dmsFields">
+        <label class="coordinate-input-card">
+          <span>Latitud decimal</span>
+          <input type="number" step="any" name="lat" [(ngModel)]="coordinateForm.lat" placeholder="4.7110">
+        </label>
+
+        <label class="coordinate-input-card">
+          <span>Longitud decimal</span>
+          <input type="number" step="any" name="lng" [(ngModel)]="coordinateForm.lng" placeholder="-74.0721">
+        </label>
+
+        <label class="coordinate-modal-wide coordinate-input-card">
+          <span>Etiqueta</span>
+          <input type="text" name="label" [(ngModel)]="coordinateForm.label" placeholder="Punto de interes">
+        </label>
+      </ng-container>
+
+      <ng-template #dmsFields>
+        <div class="dms-group">
+          <div class="dms-group-head">
+            <span class="dms-group-title">Latitud GMS</span>
+            <small>Norte o Sur</small>
+          </div>
+          <div class="dms-grid">
+            <label class="coordinate-input-card">
+              <span>Grados</span>
+              <input type="number" step="1" name="latDegrees" [(ngModel)]="coordinateDmsForm.latDegrees" placeholder="4">
+            </label>
+            <label class="coordinate-input-card">
+              <span>Minutos</span>
+              <input type="number" step="1" name="latMinutes" [(ngModel)]="coordinateDmsForm.latMinutes" placeholder="42">
+            </label>
+            <label class="coordinate-input-card">
+              <span>Segundos</span>
+              <input type="number" step="any" name="latSeconds" [(ngModel)]="coordinateDmsForm.latSeconds" placeholder="39.6">
+            </label>
+            <label class="coordinate-input-card coordinate-input-select">
+              <span>Hemisferio</span>
+              <select name="latHemisphere" [(ngModel)]="coordinateDmsForm.latHemisphere">
+                <option value="N">Norte</option>
+                <option value="S">Sur</option>
+              </select>
+            </label>
+          </div>
+        </div>
+
+        <div class="dms-group">
+          <div class="dms-group-head">
+            <span class="dms-group-title">Longitud GMS</span>
+            <small>Este u Oeste</small>
+          </div>
+          <div class="dms-grid">
+            <label class="coordinate-input-card">
+              <span>Grados</span>
+              <input type="number" step="1" name="lngDegrees" [(ngModel)]="coordinateDmsForm.lngDegrees" placeholder="74">
+            </label>
+            <label class="coordinate-input-card">
+              <span>Minutos</span>
+              <input type="number" step="1" name="lngMinutes" [(ngModel)]="coordinateDmsForm.lngMinutes" placeholder="4">
+            </label>
+            <label class="coordinate-input-card">
+              <span>Segundos</span>
+              <input type="number" step="any" name="lngSeconds" [(ngModel)]="coordinateDmsForm.lngSeconds" placeholder="19.56">
+            </label>
+            <label class="coordinate-input-card coordinate-input-select">
+              <span>Hemisferio</span>
+              <select name="lngHemisphere" [(ngModel)]="coordinateDmsForm.lngHemisphere">
+                <option value="W">Oeste</option>
+                <option value="E">Este</option>
+              </select>
+            </label>
+          </div>
+        </div>
+
+        <label class="coordinate-modal-wide coordinate-input-card">
+          <span>Etiqueta</span>
+          <input type="text" name="dmsLabel" [(ngModel)]="coordinateDmsForm.label" placeholder="Punto de interes">
+        </label>
+      </ng-template>
+
+      <p class="coordinate-modal-error" *ngIf="coordinateError">{{ coordinateError }}</p>
+
+      <div class="coordinate-modal-actions">
+        <button type="button" class="map-action-button" (click)="cerrarCoordenadasModal()">Cancelar</button>
+        <button type="submit" class="map-action-button map-action-button-active">Graficar punto</button>
+      </div>
+    </form>
+  </section>
+</div>
+
+<div class="map-modal-backdrop" *ngIf="mostrarFiltrosModal" (click)="cerrarFiltrosModal()">
+  <section class="map-modal filter-modal" (click)="$event.stopPropagation()">
+    <div class="map-modal-head">
+      <div class="map-modal-title-block">
+        <span class="card-kicker">Filtros</span>
+        <h2>Filtros de Resultados</h2>
+        <p class="map-modal-text">Configura el rango de fechas, los sub filtros operativos y la informacion documental que deseas consultar.</p>
+      </div>
+
+      <button type="button" class="map-modal-close" (click)="cerrarFiltrosModal()">Cerrar</button>
+    </div>
+
+    <form class="filter-modal-form">
+      <section class="filter-block">
+        <div class="filter-block-head">
+          <span class="dms-group-title">Rango de fechas</span>
+          <small>4 selectores de fecha</small>
+        </div>
+
+        <div class="filter-date-grid">
+          <div class="filter-date-group">
+            <strong>Lapso inicial</strong>
+            <label class="coordinate-input-card filter-date-card">
+              <span>Fecha inicial</span>
+              <input type="date" name="lapsoInicialA" [(ngModel)]="filtrosForm.lapsoInicialA">
+            </label>
+            <label class="coordinate-input-card filter-date-card">
+              <span>Fecha final</span>
+              <input type="date" name="lapsoInicialB" [(ngModel)]="filtrosForm.lapsoInicialB">
+            </label>
+          </div>
+
+          <div class="filter-date-group">
+            <strong>Lapso final</strong>
+            <label class="coordinate-input-card filter-date-card">
+              <span>Fecha inicial</span>
+              <input type="date" name="lapsoFinalA" [(ngModel)]="filtrosForm.lapsoFinalA">
+            </label>
+            <label class="coordinate-input-card filter-date-card">
+              <span>Fecha final</span>
+              <input type="date" name="lapsoFinalB" [(ngModel)]="filtrosForm.lapsoFinalB">
+            </label>
+          </div>
+        </div>
+      </section>
+
+      <section class="filter-block">
+        <div class="filter-block-head">
+          <span class="dms-group-title">Sub filtros</span>
+          <small>Segmentacion operativa</small>
+        </div>
+
+        <div class="filter-tab-row filter-tab-row-inline">
+          <button
+            *ngFor="let tab of tabs"
+            type="button"
+            class="filter-tab-button"
+            [class.filter-tab-button-active]="activeTab === tab.key"
+            (click)="setTab(tab.key)">
+            {{ tab.label }}
+          </button>
+        </div>
+      </section>
+
+      <section class="filter-block">
+        <div class="filter-block-head">
+          <span class="dms-group-title">Documentos</span>
+          <small>Clasificacion documental</small>
+        </div>
+
+        <div class="document-download-card">
+          <div>
+            <strong>Documento</strong>
+            <p>Selecciona el archivo que deseas preparar para descarga segun el filtro aplicado.</p>
+          </div>
+
+          <button type="button" class="document-download-button">
+            Selecionar documento a descargar
+          </button>
+        </div>
+      </section>
+
+      <div class="coordinate-modal-actions">
+        <button type="button" class="map-action-button" (click)="cerrarFiltrosModal()">Cancelar</button>
+        <button type="button" class="map-action-button map-action-button-active" (click)="cerrarFiltrosModal()">Aplicar filtros</button>
+      </div>
+    </form>
+  </section>
+</div>

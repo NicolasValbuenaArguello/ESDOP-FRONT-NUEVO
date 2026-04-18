@@ -1,1 +1,426 @@
+@import 'leaflet/dist/leaflet.css';
+@import 'leaflet-draw/dist/leaflet.draw.css';
+
 /* You can add global styles to this file, and also import other style files */
+
+app-estadisticas .map-modal-backdrop {
+	position: fixed;
+	inset: 0;
+	z-index: 1300;
+	display: grid;
+	place-items: center;
+	padding: 24px;
+	background: rgba(31, 17, 18, 0.48);
+	backdrop-filter: blur(8px);
+}
+
+app-estadisticas .map-modal {
+	width: min(620px, 100%);
+	max-height: calc(100vh - 40px);
+	overflow: auto;
+	border-radius: 26px;
+	border: 1px solid rgba(125, 0, 18, 0.14);
+	background:
+		radial-gradient(circle at top right, rgba(125, 0, 18, 0.08), transparent 24%),
+		rgba(255, 250, 248, 0.98);
+	box-shadow: 0 28px 70px rgba(43, 22, 23, 0.24);
+	padding: 22px;
+	display: grid;
+	gap: 14px;
+}
+
+app-estadisticas .map-modal-head,
+app-estadisticas .coordinate-modal-actions {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 12px;
+}
+
+app-estadisticas .map-modal-title-block {
+	display: grid;
+	gap: 4px;
+}
+
+app-estadisticas .map-modal-close {
+	min-height: 40px;
+	padding: 0 14px;
+	border-radius: 12px;
+	border: 1px solid rgba(125, 0, 18, 0.12);
+	background: #fff;
+	color: #2b1617;
+	font-weight: 700;
+	cursor: pointer;
+}
+
+app-estadisticas .map-modal h2,
+app-estadisticas .map-modal-text {
+	margin: 0;
+}
+
+app-estadisticas .map-modal h2 {
+	font-size: 1.55rem;
+	line-height: 1.15;
+}
+
+app-estadisticas .map-modal-text {
+	color: #7a6767;
+	line-height: 1.45;
+	max-width: 48ch;
+}
+
+app-estadisticas .coordinate-system-switch {
+	display: flex;
+	gap: 10px;
+	flex-wrap: wrap;
+}
+
+app-estadisticas .coordinate-system-button {
+	min-height: 40px;
+	padding: 0 16px;
+	border-radius: 999px;
+	border: 1px solid rgba(125, 0, 18, 0.14);
+	background: #fff;
+	color: #2b1617;
+	font-weight: 700;
+	cursor: pointer;
+	box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9);
+}
+
+app-estadisticas .coordinate-system-button-active {
+	background: linear-gradient(135deg, #53000b 0%, #7d0012 100%);
+	color: #fff;
+	border-color: transparent;
+}
+
+app-estadisticas .coordinate-system-note {
+	display: grid;
+	gap: 4px;
+	padding: 10px 12px;
+	border-radius: 18px;
+	border: 1px solid rgba(125, 0, 18, 0.1);
+	background: rgba(125, 0, 18, 0.05);
+}
+
+app-estadisticas .coordinate-system-note strong {
+	color: #2b1617;
+	font-size: 0.92rem;
+}
+
+app-estadisticas .coordinate-system-note span {
+	color: #7a6767;
+	line-height: 1.5;
+}
+
+app-estadisticas .coordinate-modal-form {
+	display: grid;
+	grid-template-columns: repeat(2, minmax(0, 1fr));
+	gap: 12px;
+}
+
+app-estadisticas .dms-group {
+	grid-column: 1 / -1;
+	display: grid;
+	gap: 10px;
+	padding: 12px;
+	border: 1px solid rgba(125, 0, 18, 0.12);
+	border-radius: 18px;
+	background: linear-gradient(180deg, rgba(255, 255, 255, 0.88) 0%, rgba(255, 248, 246, 0.94) 100%);
+	box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9);
+}
+
+app-estadisticas .dms-group-head {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 12px;
+}
+
+app-estadisticas .dms-group-head small {
+	color: #7a6767;
+	font-size: 0.76rem;
+	font-weight: 700;
+}
+
+app-estadisticas .dms-group-title {
+	font-size: 0.84rem;
+	font-weight: 800;
+	color: #2b1617;
+}
+
+app-estadisticas .dms-grid {
+	display: grid;
+	grid-template-columns: repeat(4, minmax(0, 1fr));
+	gap: 10px;
+}
+
+app-estadisticas .coordinate-input-card {
+	min-width: 0;
+	padding: 8px 10px 10px;
+	border-radius: 14px;
+	border: 1px solid rgba(125, 0, 18, 0.1);
+	background: rgba(255, 255, 255, 0.8);
+	box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9);
+	box-sizing: border-box;
+	overflow: hidden;
+}
+
+app-estadisticas .coordinate-modal-form label {
+	display: grid;
+	gap: 5px;
+	min-width: 0;
+}
+
+app-estadisticas .coordinate-modal-form span {
+	font-size: 0.74rem;
+	font-weight: 700;
+	color: #7a6767;
+}
+
+app-estadisticas .coordinate-modal-form input,
+app-estadisticas .coordinate-modal-form select {
+	width: 100%;
+	max-width: 100%;
+	min-height: 40px;
+	border-radius: 10px;
+	border: 1px solid rgba(125, 0, 18, 0.14);
+	padding: 0 10px;
+	background: #fff;
+	color: #2b1617;
+	box-sizing: border-box;
+}
+
+app-estadisticas .coordinate-modal-form select {
+	appearance: none;
+	-webkit-appearance: none;
+	-moz-appearance: none;
+	background-image: linear-gradient(45deg, transparent 50%, #7d0012 50%), linear-gradient(135deg, #7d0012 50%, transparent 50%);
+	background-position: calc(100% - 18px) calc(50% - 3px), calc(100% - 12px) calc(50% - 3px);
+	background-size: 6px 6px, 6px 6px;
+	background-repeat: no-repeat;
+	padding-right: 30px;
+}
+
+app-estadisticas .coordinate-modal-form input:focus,
+app-estadisticas .coordinate-modal-form select:focus {
+	outline: none;
+	border-color: rgba(125, 0, 18, 0.38);
+	box-shadow: 0 0 0 3px rgba(125, 0, 18, 0.1);
+}
+
+app-estadisticas .coordinate-modal-wide,
+app-estadisticas .coordinate-modal-error,
+app-estadisticas .coordinate-modal-actions {
+	grid-column: 1 / -1;
+}
+
+app-estadisticas .coordinate-modal-error {
+	margin: 0;
+	color: #9f1f32;
+	font-weight: 700;
+	font-size: 0.84rem;
+}
+
+app-estadisticas .filter-modal {
+	width: min(760px, 100%);
+}
+
+app-estadisticas .filter-tab-row {
+	display: flex;
+	gap: 10px;
+	flex-wrap: wrap;
+}
+
+app-estadisticas .filter-tab-row-inline {
+	padding: 2px 0;
+}
+
+app-estadisticas .filter-tab-button {
+	min-height: 42px;
+	padding: 0 16px;
+	border-radius: 14px;
+	border: 1px solid rgba(125, 0, 18, 0.12);
+	background: #fff;
+	color: #2b1617;
+	font-weight: 700;
+	cursor: pointer;
+	box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.92);
+}
+
+app-estadisticas .filter-tab-button-active {
+	background: linear-gradient(135deg, #53000b 0%, #7d0012 100%);
+	color: #fff;
+	border-color: transparent;
+}
+
+app-estadisticas .filter-modal-form {
+	display: grid;
+	gap: 14px;
+}
+
+app-estadisticas .filter-block {
+	display: grid;
+	gap: 12px;
+	padding: 14px;
+	border-radius: 20px;
+	border: 1px solid rgba(125, 0, 18, 0.12);
+	background: linear-gradient(180deg, rgba(255, 255, 255, 0.88) 0%, rgba(255, 248, 246, 0.94) 100%);
+}
+
+app-estadisticas .filter-block-head {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 12px;
+}
+
+app-estadisticas .filter-block-head small,
+app-estadisticas .filter-date-group strong {
+	color: #7a6767;
+	font-size: 0.78rem;
+	font-weight: 700;
+}
+
+app-estadisticas .filter-date-grid,
+app-estadisticas .filter-select-grid {
+	display: grid;
+	grid-template-columns: repeat(2, minmax(0, 1fr));
+	gap: 12px;
+}
+
+app-estadisticas .filter-select-grid {
+	grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+app-estadisticas .filter-date-group {
+	display: grid;
+	gap: 10px;
+}
+
+app-estadisticas .filter-date-card {
+	gap: 8px;
+	padding: 12px 14px;
+	border-radius: 18px;
+	background: linear-gradient(180deg, rgba(255, 255, 255, 0.96) 0%, rgba(255, 246, 244, 0.98) 100%);
+	box-shadow: 0 10px 24px rgba(84, 26, 31, 0.06);
+}
+
+app-estadisticas .filter-date-card input {
+	min-height: 46px;
+	border-radius: 14px;
+	padding: 0 14px;
+	font-weight: 600;
+	background: #fff;
+}
+
+app-estadisticas .filter-date-card span {
+	font-size: 0.8rem;
+	color: #5f4e4e;
+}
+
+app-estadisticas .filter-modal .coordinate-input-card {
+	gap: 8px;
+	align-content: start;
+}
+
+app-estadisticas .filter-modal .coordinate-input-card span {
+	font-size: 0.78rem;
+	line-height: 1.1;
+}
+
+app-estadisticas .filter-modal .coordinate-input-card input,
+app-estadisticas .filter-modal .coordinate-input-card select {
+	min-height: 42px;
+	font-size: 0.92rem;
+}
+
+app-estadisticas .filter-modal .coordinate-input-card select {
+	background-color: #fff;
+	border-color: rgba(125, 0, 18, 0.16);
+}
+
+app-estadisticas .document-download-card {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 18px;
+	padding: 16px 18px;
+	border-radius: 18px;
+	border: 1px solid rgba(125, 0, 18, 0.12);
+	background: linear-gradient(180deg, rgba(255, 255, 255, 0.95) 0%, rgba(255, 247, 245, 0.98) 100%);
+}
+
+app-estadisticas .document-download-card strong {
+	display: block;
+	margin-bottom: 4px;
+	color: #2b1617;
+}
+
+app-estadisticas .document-download-card p {
+	margin: 0;
+	color: #7a6767;
+	line-height: 1.5;
+}
+
+app-estadisticas .document-download-button {
+	min-height: 44px;
+	padding: 0 18px;
+	border-radius: 14px;
+	border: 1px solid transparent;
+	background: linear-gradient(135deg, #53000b 0%, #7d0012 100%);
+	color: #fff;
+	font-weight: 700;
+	cursor: pointer;
+	white-space: nowrap;
+	box-shadow: 0 12px 24px rgba(125, 0, 18, 0.18);
+}
+
+app-estadisticas .coordinate-modal-actions {
+	position: sticky;
+	bottom: -22px;
+	padding-top: 8px;
+	background: linear-gradient(180deg, rgba(255, 250, 248, 0) 0%, rgba(255, 250, 248, 0.96) 24%, rgba(255, 250, 248, 1) 100%);
+}
+
+@media (max-width: 900px) {
+	app-estadisticas .coordinate-modal-form,
+	app-estadisticas .map-modal-head,
+	app-estadisticas .coordinate-modal-actions {
+		grid-template-columns: 1fr;
+		display: grid;
+	}
+
+	app-estadisticas .map-modal {
+		max-height: calc(100vh - 20px);
+		padding: 18px;
+	}
+
+	app-estadisticas .dms-group-head {
+		display: grid;
+	}
+
+	app-estadisticas .dms-grid {
+		grid-template-columns: 1fr 1fr;
+	}
+
+	app-estadisticas .filter-date-grid,
+	app-estadisticas .filter-select-grid {
+		grid-template-columns: 1fr;
+	}
+
+	app-estadisticas .document-download-card {
+		align-items: start;
+		flex-direction: column;
+	}
+}
+
+@media (max-width: 640px) {
+	app-estadisticas .map-modal-backdrop {
+		padding: 10px;
+	}
+
+	app-estadisticas .dms-grid,
+	app-estadisticas .coordinate-modal-form {
+		grid-template-columns: 1fr;
+	}
+}
