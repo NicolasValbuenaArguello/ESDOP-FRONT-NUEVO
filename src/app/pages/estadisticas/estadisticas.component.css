@@ -23,7 +23,7 @@
 }
 
 .stats-main {
-  padding: 24px;
+  padding: clamp(14px, 2.2vw, 24px);
   display: grid;
   gap: 16px;
   align-content: start;
@@ -110,12 +110,14 @@
 .chart-badge {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   min-height: 34px;
   padding: 0 12px;
   border-radius: 999px;
   background: rgba(125, 0, 18, 0.08);
   color: var(--wine);
   font-weight: 700;
+  line-height: 1.25;
 }
 
 .map-chip.soft {
@@ -185,7 +187,7 @@
 
 .map-panel.map-panel-fullscreen {
   position: fixed;
-  inset: 16px;
+  inset: max(8px, env(safe-area-inset-top)) max(8px, env(safe-area-inset-right)) max(8px, env(safe-area-inset-bottom)) max(8px, env(safe-area-inset-left));
   z-index: 1200;
   background: #fffaf8;
   border-radius: 28px;
@@ -247,7 +249,9 @@
 }
 
 .digital-map {
-  min-height: 560px;
+  width: 100%;
+  height: clamp(340px, 62vh, 760px);
+  min-height: 340px;
   border-radius: 22px;
   overflow: hidden;
   border: 1px solid rgba(15, 31, 36, 0.08);
@@ -357,6 +361,11 @@
   align-items: center;
 }
 
+.chart-row span,
+.chart-row strong {
+  white-space: nowrap;
+}
+
 .chart-track {
   height: 10px;
   border-radius: 999px;
@@ -380,6 +389,16 @@
   .stats-board {
     grid-template-columns: 1fr;
   }
+
+  .stats-side,
+  .stats-side-right {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .stats-side .stats-card-highlight,
+  .stats-side-right .chart-card {
+    grid-column: 1 / -1;
+  }
 }
 
 @media (max-width: 900px) {
@@ -393,14 +412,92 @@
 
   .stats-topbar {
     display: grid;
+    gap: 12px;
+  }
+
+  .stats-nav {
+    justify-content: flex-start;
+  }
+
+  .stats-nav-button {
+    flex: 1 1 calc(50% - 10px);
+    min-width: 170px;
+  }
+
+  .stats-side,
+  .stats-side-right {
+    grid-template-columns: 1fr;
+  }
+
+  .map-toolbar {
+    gap: 12px;
+  }
+
+  .map-toolbar-actions {
+    width: 100%;
+    justify-content: flex-start;
+  }
+
+  .map-action-button {
+    flex: 1 1 calc(50% - 10px);
+    min-width: 170px;
   }
 
   .digital-map {
-    min-height: 420px;
+    height: min(56vh, 520px);
+    min-height: 320px;
   }
 
   .map-panel.map-panel-fullscreen {
     inset: 10px;
   }
 
+}
+
+@media (max-width: 640px) {
+  .stats-main {
+    padding: 14px 10px;
+    gap: 12px;
+  }
+
+  .stats-side,
+  .map-panel,
+  .chart-card {
+    border-radius: 16px;
+    padding: 14px;
+  }
+
+  .stats-nav-button,
+  .map-action-button {
+    flex: 1 1 100%;
+    min-width: 0;
+  }
+
+  .digital-map {
+    height: min(52vh, 460px);
+    min-height: 280px;
+    border-radius: 16px;
+  }
+
+  .map-toolbar-group {
+    width: 100%;
+  }
+
+  .map-chip {
+    width: 100%;
+    justify-content: center;
+    white-space: normal;
+    text-align: center;
+    padding: 6px 10px;
+  }
+
+  .chart-row {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 6px;
+  }
+
+  .chart-row span,
+  .chart-row strong {
+    white-space: normal;
+  }
 }

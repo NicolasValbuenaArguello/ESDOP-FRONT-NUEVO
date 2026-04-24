@@ -425,23 +425,3 @@ app-estadisticas .coordinate-modal-actions {
 	}
 }
 
-/* Override Leaflet default marker images to use assets/media so production
-	 builds pick the images from the browser/media -> assets/media mapping. */
-.leaflet-container .leaflet-marker-icon,
-.leaflet-container .leaflet-marker-shadow {
-	image-rendering: auto;
-}
-
-/* Default Leaflet CSS references icons relatively; override the URLs to
- 	point to our built assets directory. Update filenames if yours differ. */
-
-/* Provide explicit URLs used by Leaflet for its default markers */
-/* Adjust filenames to match the ones in browser/media before building */
-:root {
-	--leaflet-marker-icon: url('/assets/media/marker-icon-2x-TBM42ERR.png');
-	--leaflet-marker-icon-1x: url('/assets/media/marker-icon-55W3Q4RM.png');
-	--leaflet-marker-shadow: url('/assets/media/spritesheet-YHL5CRRG.png');
-}
-
-/* Apply the above vars where relevant (Leaflet doesn't use CSS vars, but
-	 some mapping here helps when using your custom markers in components). */

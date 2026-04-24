@@ -417,6 +417,14 @@
 
   .sidebar {
     border-radius: 28px;
+    padding: 14px;
+    gap: 12px;
+  }
+
+  .menu-link,
+  .menu-trigger,
+  .logout-button {
+    min-height: 48px;
   }
 
   .sidebar-compact {
@@ -433,5 +441,47 @@
   .sidebar-compact .menu-trigger,
   .sidebar-compact .logout-button {
     justify-content: flex-start;
+  }
+}
+
+@media (max-width: 640px) {
+  .sidebar,
+  .sidebar-compact {
+    border-radius: 18px;
+    padding: 12px 10px;
+  }
+
+  .sidebar-topbar {
+    gap: 8px;
+  }
+
+  .brand-logo,
+  .user-avatar,
+  .menu-icon,
+  .icon-button {
+    width: 38px;
+    height: 38px;
+    border-radius: 12px;
+  }
+
+  .menu-link,
+  .menu-trigger,
+  .submenu-link,
+  .logout-button {
+    border-radius: 14px;
+  }
+
+  .submenu {
+    padding: 0 8px 10px;
+  }
+
+  .menu-copy strong,
+  .submenu-copy strong {
+    font-size: 0.86rem;
+  }
+
+  .menu-copy small,
+  .submenu-copy small {
+    font-size: 0.72rem;
   }
 }

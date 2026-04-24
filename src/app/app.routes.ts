@@ -1,35 +1,34 @@
 import { Routes } from '@angular/router';
-import { LoginComponent } from './auth/login/login.component';
 import { AuthGuard } from './guards/auth-guard';
-import { HomeComponent } from './home/home.component';
-import { EstadisticasComponent } from './pages/estadisticas/estadisticas.component';
-import { UsuariosComponent } from './pages/usuarios/usuarios/usuarios';
 
 
 export const routes: Routes = [
   { path: '', pathMatch: 'full', redirectTo: 'login' },
-  { path: 'login', component: LoginComponent },
+  {
+    path: 'login',
+    loadComponent: () => import('./auth/login/login.component').then((m) => m.LoginComponent)
+  },
   {
     path: 'home',
-    component: HomeComponent,
+    loadComponent: () => import('./home/home.component').then((m) => m.HomeComponent),
     canActivate: [AuthGuard],
     data: { nombre: 'Home', descripcion: 'Panel principal' }
   },
   {
     path: 'usuarios',
-    component: UsuariosComponent,
+    loadComponent: () => import('./pages/usuarios/usuarios/usuarios').then((m) => m.UsuariosComponent),
     canActivate: [AuthGuard],
     data: { nombre: 'Usuarios', descripcion: 'Gestión de usuarios' }
   },
   {
     path: 'estadisticas',
-    component: EstadisticasComponent,
+    loadComponent: () => import('./pages/estadisticas/estadisticas.component').then((m) => m.EstadisticasComponent),
     canActivate: [AuthGuard],
     data: { nombre: 'Estadisticas', descripcion: 'Visualizacion de estadisticas' }
   },
   {
     path: 'configuracion',
-    component: HomeComponent,
+    loadComponent: () => import('./home/home.component').then((m) => m.HomeComponent),
     canActivate: [AuthGuard],
     data: { nombre: 'Configuracion', descripcion: 'Ajustes del sistema' }
   },

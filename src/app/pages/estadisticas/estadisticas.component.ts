@@ -66,6 +66,10 @@ export class EstadisticasComponent implements AfterViewInit, OnDestroy {
   private measurementLayer: L.FeatureGroup = new L.FeatureGroup();
   private measurementPoints: L.LatLng[] = [];
   private measurementLine?: L.Polyline;
+  private readonly markerResizeHandler = () => {
+    this.applyLeafletRuntimePatches();
+    this.refreshMarkerIcons();
+  };
   private readonly fullscreenChangeHandler = () => {
     const fsEl = (this.document as Document).fullscreenElement;
     this.isMapFullscreen = fsEl === this.mapPanelRef?.nativeElement;
@@ -179,28 +183,98 @@ export class EstadisticasComponent implements AfterViewInit, OnDestroy {
   }
 
   ngAfterViewInit() {
+    this.applyLeafletRuntimePatches();
     this.initializeMap();
     (this.document as Document).addEventListener('fullscreenchange', this.fullscreenChangeHandler);
-    // Listen for main.ts dispatch when Leaflet icon paths are resolved
-    window.addEventListener('leaflet-icons-ready', this.onLeafletIconsReady as EventListener);
+    window.addEventListener('resize', this.markerResizeHandler);
   }
 
   ngOnDestroy() {
     (this.document as Document).removeEventListener('fullscreenchange', this.fullscreenChangeHandler);
-    window.removeEventListener('leaflet-icons-ready', this.onLeafletIconsReady as EventListener);
+    window.removeEventListener('resize', this.markerResizeHandler);
     this.map?.remove();
   }
 
-  private onLeafletIconsReady = (ev: Event) => {
-    // When the icon URLs are ready, ensure existing markers refresh their icons.
-    // Delay slightly to ensure map/layers are initialized.
-    setTimeout(() => this.refreshMarkerIcons(), 50);
-  };
+  private applyLeafletRuntimePatches() {
+    this.patchLeafletReadableArea();
+    this.setLeafletDefaultIconPaths();
+  }
+
+  private patchLeafletReadableArea() {
+    try {
+      const geometryUtil = (L as any).GeometryUtil;
+      if (!geometryUtil) {
+        return;
+      }
+
+      const original = geometryUtil.readableArea;
+      if (typeof original !== 'function') {
+        return;
+      }
+
+      if ((geometryUtil as any).__esdopPatchedReadableArea) {
+        return;
+      }
+
+      geometryUtil.readableArea = function (area: number, isMetric: boolean, precisionOrOptions?: any) {
+        // eslint-disable-next-line no-unused-vars
+        let type: any;
+
+        try {
+          return original.apply(this, arguments as any);
+        } catch (err) {
+          try {
+            const areaValue = Number(area) || 0;
+            const precision = (precisionOrOptions && precisionOrOptions.precision) || 2;
+            const unit = isMetric ? 'm²' : 'ft²';
+            return areaValue.toFixed(precision) + ' ' + unit;
+          } catch (_ignored) {
+            return String(area);
+          }
+        }
+      };
+
+      (geometryUtil as any).__esdopPatchedReadableArea = true;
+    } catch (error) {
+      // ignore patching failures to keep map boot resilient
+    }
+  }
+
+  private setLeafletDefaultIconPaths() {
+    try {
+      const baseEl = (document.querySelector('base') as HTMLBaseElement) || null;
+      const baseHref = baseEl?.getAttribute('href') || '/';
+      const appBase = new URL(baseHref, window.location.origin);
+
+      const iconRetinaUrl = new URL('assets/leaflet/marker-icon-2x.png', appBase).toString();
+      const iconUrl = new URL('assets/leaflet/marker-icon.png', appBase).toString();
+      const shadowUrl = new URL('assets/leaflet/marker-shadow.png', appBase).toString();
+
+      const isMobile = window.matchMedia('(max-width: 768px)').matches;
+      const iconSize = isMobile ? [20, 33] : [25, 41];
+      const iconAnchor = isMobile ? [10, 33] : [12, 41];
+      const popupAnchor = isMobile ? [1, -28] : [1, -34];
+      const shadowSize = isMobile ? [33, 33] : [41, 41];
+
+      delete (L.Icon.Default.prototype as any)._getIconUrl;
+
+      L.Icon.Default.mergeOptions({
+        iconRetinaUrl,
+        iconUrl,
+        shadowUrl,
+        iconSize,
+        iconAnchor,
+        popupAnchor,
+        shadowSize
+      });
+    } catch (error) {
+      // ignore icon setup failures so the rest of the view keeps working
+    }
+  }
 
   private refreshMarkerIcons() {
     if (!this.map) return;
-    // Iterate all layers and replace icon for non-divIcon markers
-    this.markerLayer.eachLayer((layer) => {
+    const refreshMarkerLayer = (group: L.LayerGroup) => group.eachLayer((layer) => {
       if (layer instanceof L.Marker) {
         const icon = (layer as L.Marker).options.icon as any;
         // If it's a divIcon we skip
@@ -225,6 +299,9 @@ export class EstadisticasComponent implements AfterViewInit, OnDestroy {
         }
       }
     });
+
+    refreshMarkerLayer(this.markerLayer);
+    refreshMarkerLayer(this.editableLayers);
   }
 
   
