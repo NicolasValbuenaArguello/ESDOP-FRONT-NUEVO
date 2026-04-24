@@ -1,5 +1,5 @@
-import { CommonModule } from '@angular/common';
-import { AfterViewInit, ChangeDetectorRef, Component, ElementRef, NgZone, OnDestroy, ViewChild } from '@angular/core';
+import { CommonModule, DOCUMENT } from '@angular/common';
+import { AfterViewInit, ChangeDetectorRef, Component, ElementRef, Inject, NgZone, OnDestroy, ViewChild } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import * as L from 'leaflet';
 import 'leaflet-draw';
@@ -18,6 +18,7 @@ type CoordinateSystem = 'decimal' | 'dms';
 export class EstadisticasComponent implements AfterViewInit, OnDestroy {
   @ViewChild('leafletMap') leafletMapRef?: ElementRef<HTMLDivElement>;
   @ViewChild('mapPanel') mapPanelRef?: ElementRef<HTMLElement>;
+  
 
   sidebarVisible = true;
   activeTab: TabKey = 'filtros';
@@ -60,19 +61,21 @@ export class EstadisticasComponent implements AfterViewInit, OnDestroy {
   };
 
   private map?: L.Map;
-  private markerLayer = L.layerGroup();
-  private editableLayers = new L.FeatureGroup();
-  private measurementLayer = new L.FeatureGroup();
+  private markerLayer: L.LayerGroup = L.layerGroup();
+  private editableLayers: L.FeatureGroup = new L.FeatureGroup();
+  private measurementLayer: L.FeatureGroup = new L.FeatureGroup();
   private measurementPoints: L.LatLng[] = [];
   private measurementLine?: L.Polyline;
   private readonly fullscreenChangeHandler = () => {
-    this.isMapFullscreen = document.fullscreenElement === this.mapPanelRef?.nativeElement;
+    const fsEl = (this.document as Document).fullscreenElement;
+    this.isMapFullscreen = fsEl === this.mapPanelRef?.nativeElement;
     setTimeout(() => this.map?.invalidateSize(), 80);
   };
 
   constructor(
     private readonly cdr: ChangeDetectorRef,
-    private readonly ngZone: NgZone
+    private readonly ngZone: NgZone,
+    @Inject(DOCUMENT) private readonly document: Document
   ) {}
 
   readonly tabs: Array<{ key: TabKey; label: string }> = [
@@ -177,14 +180,54 @@ export class EstadisticasComponent implements AfterViewInit, OnDestroy {
 
   ngAfterViewInit() {
     this.initializeMap();
-    document.addEventListener('fullscreenchange', this.fullscreenChangeHandler);
+    (this.document as Document).addEventListener('fullscreenchange', this.fullscreenChangeHandler);
+    // Listen for main.ts dispatch when Leaflet icon paths are resolved
+    window.addEventListener('leaflet-icons-ready', this.onLeafletIconsReady as EventListener);
   }
 
   ngOnDestroy() {
-    document.removeEventListener('fullscreenchange', this.fullscreenChangeHandler);
+    (this.document as Document).removeEventListener('fullscreenchange', this.fullscreenChangeHandler);
+    window.removeEventListener('leaflet-icons-ready', this.onLeafletIconsReady as EventListener);
     this.map?.remove();
   }
 
+  private onLeafletIconsReady = (ev: Event) => {
+    // When the icon URLs are ready, ensure existing markers refresh their icons.
+    // Delay slightly to ensure map/layers are initialized.
+    setTimeout(() => this.refreshMarkerIcons(), 50);
+  };
+
+  private refreshMarkerIcons() {
+    if (!this.map) return;
+    // Iterate all layers and replace icon for non-divIcon markers
+    this.markerLayer.eachLayer((layer) => {
+      if (layer instanceof L.Marker) {
+        const icon = (layer as L.Marker).options.icon as any;
+        // If it's a divIcon we skip
+        if (icon && icon.options && icon.options.className && icon.options.className.includes('stats-map-pin')) {
+          return;
+        }
+
+        // Force the marker to use the default icon (which now points to assets)
+        try {
+          const currentLatLng = (layer as L.Marker).getLatLng();
+          const popup = (layer as L.Marker).getPopup();
+          (layer as L.Marker).setIcon(new L.Icon.Default());
+          (layer as L.Marker).setLatLng(currentLatLng);
+          if (popup) {
+            const content = popup.getContent();
+            if (content !== undefined && content !== null) {
+              (layer as L.Marker).bindPopup(content as any, { closeButton: false, offset: [0, -8] });
+            }
+          }
+        } catch (e) {
+          // ignore per-layer errors
+        }
+      }
+    });
+  }
+
+  
   private initializeMap() {
     const host = this.leafletMapRef?.nativeElement;
 
@@ -192,36 +235,40 @@ export class EstadisticasComponent implements AfterViewInit, OnDestroy {
       return;
     }
 
-    this.map = L.map(host, {
-      zoomControl: false,
-      attributionControl: true
-    }).setView([4.5709, -74.2973], 5);
+    // create the map and attach event listeners outside Angular change detection
+    this.ngZone.runOutsideAngular(() => {
+      this.map = L.map(host, {
+        zoomControl: false,
+        attributionControl: true
+      }).setView([4.5709, -74.2973], 5);
 
-    L.control.zoom({ position: 'bottomright' }).addTo(this.map);
-    L.control.scale({ position: 'bottomleft', imperial: false }).addTo(this.map);
+      L.control.zoom({ position: 'bottomright' }).addTo(this.map!);
+      L.control.scale({ position: 'bottomleft', imperial: false }).addTo(this.map!);
 
-    const baseLayers = this.createBaseLayers();
-    baseLayers['Calles'].addTo(this.map);
+      const baseLayers = this.createBaseLayers();
+      baseLayers['Calles'].addTo(this.map!);
 
-    L.control.layers(baseLayers, {
-      'Puntos operativos': this.markerLayer,
-      'Elementos creados': this.editableLayers,
-      'Medicion': this.measurementLayer
-    }, {
-      position: 'topright',
-      collapsed: false
-    }).addTo(this.map);
+      L.control.layers(baseLayers, {
+        'Puntos operativos': this.markerLayer,
+        'Elementos creados': this.editableLayers,
+        'Medicion': this.measurementLayer
+      }, {
+        position: 'topright',
+        collapsed: false
+      }).addTo(this.map!);
 
-    this.map.attributionControl.setPosition('bottomleft');
+      this.map!.attributionControl.setPosition('bottomleft');
 
-    this.markerLayer.addTo(this.map);
-    this.editableLayers.addTo(this.map);
-    this.measurementLayer.addTo(this.map);
-    this.configureDrawingTools();
-    this.configureMapEvents();
-    this.renderMarkers();
+      this.markerLayer.addTo(this.map!);
+      this.editableLayers.addTo(this.map!);
+      this.measurementLayer.addTo(this.map!);
+      this.configureDrawingTools();
+      this.configureMapEvents();
+      this.renderMarkers();
 
-    setTimeout(() => this.map?.invalidateSize(), 0);
+      // ensure map renders correctly after view changes
+      setTimeout(() => this.ngZone.run(() => this.map?.invalidateSize()), 0);
+    });
   }
 
   private configureDrawingTools() {
@@ -253,13 +300,18 @@ export class EstadisticasComponent implements AfterViewInit, OnDestroy {
       return;
     }
 
-    this.map.on(L.Draw.Event.CREATED, ((event: L.LeafletEvent) => {
-      const createdEvent = event as L.DrawEvents.Created;
-      const layer = createdEvent.layer;
-      this.decorateLayer(layer, createdEvent.layerType);
-      this.editableLayers.addLayer(layer);
-    }) as L.LeafletEventHandlerFn);
+    // draw created event: run inside Angular because it mutates component state
+    this.map.on('draw:created', (event: any) => {
+      const layer = (event as L.DrawEvents.Created).layer as L.Layer;
+      const layerType = (event as any).layerType || 'layer';
+      this.ngZone.run(() => {
+        this.decorateLayer(layer, layerType);
+        this.editableLayers.addLayer(layer);
+        this.cdr.markForCheck();
+      });
+    });
 
+    // mousemove can fire frequently - update view model inside Angular zone but minimize CD by markForCheck
     this.map.on('mousemove', (event: L.LeafletMouseEvent) => {
       this.ngZone.run(() => {
         this.cursorCoordinates = this.formatLatLngDms(event.latlng.lat, event.latlng.lng);
@@ -267,21 +319,25 @@ export class EstadisticasComponent implements AfterViewInit, OnDestroy {
       });
     });
 
+    // click handler may trigger UI prompts and marker creation
     this.map.on('click', (event: L.LeafletMouseEvent) => {
-      if (!this.textModeEnabled) {
-        if (this.measureModeEnabled) {
-          this.addMeasurementPoint(event.latlng);
+      this.ngZone.run(() => {
+        if (!this.textModeEnabled) {
+          if (this.measureModeEnabled) {
+            this.addMeasurementPoint(event.latlng);
+            this.cdr.markForCheck();
+          }
+
+          return;
         }
 
-        return;
-      }
+        const text = (this.document.defaultView || window).prompt('Texto para ubicar en el mapa');
+        this.textModeEnabled = false;
 
-      const text = window.prompt('Texto para ubicar en el mapa');
-      this.textModeEnabled = false;
-
-      if (text?.trim()) {
-        this.createTextMarker(event.latlng, text.trim());
-      }
+        if (text?.trim()) {
+          this.createTextMarker(event.latlng, text.trim());
+        }
+      });
     });
   }
 
@@ -571,7 +627,7 @@ export class EstadisticasComponent implements AfterViewInit, OnDestroy {
   }
 
   exportDrawnData() {
-    const allLayers = [
+    const allLayers: L.Layer[] = [
       ...this.editableLayers.getLayers(),
       ...this.measurementLayer.getLayers()
     ];
@@ -580,20 +636,14 @@ export class EstadisticasComponent implements AfterViewInit, OnDestroy {
       .map((layer, index) => this.layerToKml(layer, index + 1))
       .filter((placemark): placemark is string => Boolean(placemark));
 
-    const kml = `<?xml version="1.0" encoding="UTF-8"?>
-<kml xmlns="http://www.opengis.net/kml/2.2">
-  <Document>
-    <name>Mapa operativo</name>
-    ${placemarks.join('\n    ')}
-  </Document>
-</kml>`;
+    const kml = `<?xml version="1.0" encoding="UTF-8"?>\n<kml xmlns="http://www.opengis.net/kml/2.2">\n  <Document>\n    <name>Mapa operativo</name>\n    ${placemarks.join('\n    ')}\n  </Document>\n</kml>`;
 
     const blob = new Blob([kml], {
       type: 'application/vnd.google-earth.kml+xml;charset=utf-8'
     });
 
     const url = URL.createObjectURL(blob);
-    const anchor = document.createElement('a');
+    const anchor = (this.document as Document).createElement('a');
     anchor.href = url;
     anchor.download = 'mapa-operativo.kml';
     anchor.click();

@@ -1,0 +1,57 @@
+services:
+
+  # 🌐 NGINX (PUERTA DE ENTRADA)
+  nginx:
+    image: nginx:alpine
+    container_name: gateway
+    restart: always
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - frontend
+      - login
+      - usuarios
+    networks:
+      - esdop_net
+
+
+  # 🎨 FRONTEND (Angular)
+  frontend:
+    build: ./front
+    container_name: front
+    restart: always
+    expose:
+      - "80"
+    networks:
+      - esdop_net
+
+
+  # 🔐 LOGIN (FastAPI)
+  login:
+    build: ./bakeng
+    container_name: api_login
+    command: uvicorn login.login:app --host 0.0.0.0 --port 8000
+    expose:
+      - "8000"
+    restart: always
+    networks:
+      - esdop_net
+
+
+  # 👥 USUARIOS (FastAPI)
+  usuarios:
+    build: ./bakeng
+    container_name: api_usuarios
+    command: uvicorn usuarios.usuarios:app --host 0.0.0.0 --port 8001
+    expose:
+      - "8001"
+    restart: always
+    networks:
+      - esdop_net
+
+
+networks:
+  esdop_net:
+    driver: bridge
