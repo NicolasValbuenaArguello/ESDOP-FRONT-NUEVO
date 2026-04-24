@@ -1,6 +1,8 @@
 :host {
   display: block;
   min-height: 100vh;
+  /* distance from top/bottom reserved for headers/controls; adjust as needed */
+  --map-offset: 180px;
   --wine: #7d0012;
   --wine-dark: #53000b;
   --ink: #2b1617;
@@ -183,6 +185,8 @@
   display: grid;
   gap: 14px;
   align-content: start;
+  /* push the map panel slightly lower on the page */
+  margin-top: 18px;
 }
 
 .map-panel.map-panel-fullscreen {
@@ -250,8 +254,10 @@
 
 .digital-map {
   width: 100%;
-  height: clamp(340px, 62vh, 760px);
-  min-height: 340px;
+  /* Responsive height: prefer viewport-based sizing but keep sensible min/max limits.
+     The --map-offset variable reserves vertical space for headers/controls. */
+  min-height: clamp(280px, calc(100vh - var(--map-offset)), 760px);
+  height: min(62vh, calc(100vh - var(--map-offset)));
   border-radius: 22px;
   overflow: hidden;
   border: 1px solid rgba(15, 31, 36, 0.08);
