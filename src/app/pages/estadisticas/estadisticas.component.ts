@@ -1,11 +1,27 @@
+
+
+
 import { CommonModule, DOCUMENT } from '@angular/common';
 import { AfterViewInit, ChangeDetectorRef, Component, ElementRef, Inject, NgZone, OnDestroy, ViewChild } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import html2canvas from 'html2canvas';
 import * as L from 'leaflet';
 import 'leaflet-draw';
 import { SidebarComponent } from '../../shared/sidebar/sidebar.component';
 
-type TabKey = 'filtros' | 'afectaciones' | 'narcotrafico' | 'mineria';
+type Evento = {
+  id: number;
+  categoria: string;
+  tipo: string;
+  cantidad_total: number;
+  puntos: Array<{
+    latitud: number;
+    longitud: number;
+    cantidad: number;
+    ubicacion: string;
+    division: string;
+  }>;
+};
 type CoordinateSystem = 'decimal' | 'dms';
 
 @Component({
@@ -16,12 +32,110 @@ type CoordinateSystem = 'decimal' | 'dms';
   styleUrls: ['./estadisticas.component.css']
 })
 export class EstadisticasComponent implements AfterViewInit, OnDestroy {
+  readonly allTypesToken = '__ALL_TYPES__';
+
+  mostrarPivotModal = false;
+
+  mostrarGraficasModal = false;
+  mostrarTablaModal = false;
+
+  // Descargar gráficas como imagen (usa html2canvas)
+  async descargarGraficasComoImagen() {
+    const el =
+      this.document.getElementById('graficas-modal-content') ||
+      this.document.querySelector('.popup-modal.graficas-modal');
+    if (!el) {
+      alert('No se encontró el contenedor de las gráficas.');
+      return;
+    }
+    const canvas = await html2canvas(el, {
+      backgroundColor: '#ffffff',
+      scale: window.devicePixelRatio > 1 ? 2 : 1
+    });
+    const link = document.createElement('a');
+    link.download = 'graficas.png';
+    link.href = canvas.toDataURL();
+    link.click();
+  }
+
+  // Descargar tabla como CSV
+  descargarTablaComoCSV() {
+    const tableData = this.getPivotTableData();
+    let csv = ['TIPO', ...tableData.divisiones, 'TOTAL'].join(',') + '\n';
+
+    for (const row of tableData.rows) {
+      const values = [
+        row.tipo,
+        ...tableData.divisiones.map((division) => String(row.valores[division] || 0)),
+        String(row.total)
+      ];
+      csv += values.join(',') + '\n';
+    }
+
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const link = document.createElement('a');
+    link.download = 'tabla.csv';
+    link.href = URL.createObjectURL(blob);
+    link.click();
+  }
+
+  // Tooltip para gráfica comparativa
+  setTooltipPosition(event: MouseEvent) {
+    const x = event.clientX;
+    const y = event.clientY;
+    document.documentElement.style.setProperty('--tooltip-mouse-x', x + 'px');
+    document.documentElement.style.setProperty('--tooltip-mouse-y', y + 'px');
+  }
+  clearTooltipPosition() {
+    document.documentElement.style.setProperty('--tooltip-mouse-x', '50vw');
+    document.documentElement.style.setProperty('--tooltip-mouse-y', '0px');
+  }
+
+    getPivotTableData() {
+      const tipos = this.getTiposActivos();
+      const divisiones = Array.from(
+        new Set(
+          tipos.flatMap((tipo) => (this.puntosPorTipo[tipo.tipo] || []).map((punto) => punto.division))
+        )
+      ).sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
+
+      const rows = tipos.map((tipo) => {
+        const valores: Record<string, number> = {};
+        let total = 0;
+
+        for (const division of divisiones) {
+          valores[division] = 0;
+        }
+
+        for (const punto of this.puntosPorTipo[tipo.tipo] || []) {
+          valores[punto.division] = (valores[punto.division] || 0) + punto.cantidad;
+          total += punto.cantidad;
+        }
+
+        return {
+          tipo: tipo.tipo,
+          valores,
+          total
+        };
+      });
+
+      const totalGeneral: Record<string, number> = {};
+      for (const division of divisiones) {
+        totalGeneral[division] = rows.reduce((acc, row) => acc + (row.valores[division] || 0), 0);
+      }
+
+      return {
+        divisiones,
+        rows,
+        totalGeneral,
+        totalGlobal: rows.reduce((acc, row) => acc + row.total, 0)
+      };
+    }
   @ViewChild('leafletMap') leafletMapRef?: ElementRef<HTMLDivElement>;
   @ViewChild('mapPanel') mapPanelRef?: ElementRef<HTMLElement>;
   
 
   sidebarVisible = true;
-  activeTab: TabKey = 'filtros';
   textModeEnabled = false;
   isMapFullscreen = false;
   mostrarCoordenadasModal = false;
@@ -31,34 +145,34 @@ export class EstadisticasComponent implements AfterViewInit, OnDestroy {
   measurementSummary = 'Medicion inactiva';
   coordinateError = '';
   coordinateSystem: CoordinateSystem = 'decimal';
-  coordinateForm = {
-    lat: '',
-    lng: '',
-    label: ''
-  };
-  coordinateDmsForm = {
-    latDegrees: '',
-    latMinutes: '',
-    latSeconds: '',
-    latHemisphere: 'N',
-    lngDegrees: '',
-    lngMinutes: '',
-    lngSeconds: '',
-    lngHemisphere: 'W',
-    label: ''
-  };
-  filtrosForm = {
-    lapsoInicialA: '',
-    lapsoInicialB: '',
-    lapsoFinalA: '',
-    lapsoFinalB: '',
-    subFiltroRegional: '',
-    subFiltroUnidad: '',
-    subFiltroEstado: '',
-    documentosTipo: '',
-    documentosOrigen: '',
-    documentosClasificacion: ''
-  };
+  coordinateForm = { lat: '', lng: '', label: '' };
+  coordinateDmsForm = { latDegrees: '', latMinutes: '', latSeconds: '', latHemisphere: 'N', lngDegrees: '', lngMinutes: '', lngSeconds: '', lngHemisphere: 'W', label: '' };
+  filtrosForm = { lapsoInicialA: '', lapsoInicialB: '', lapsoFinalA: '', lapsoFinalB: '', subFiltroRegional: '', subFiltroUnidad: '', subFiltroEstado: '', documentosTipo: '', documentosOrigen: '', documentosClasificacion: '' };
+
+  // --- NUEVO: Datos dinámicos de ejemplo ---
+  eventos: Evento[] = [];
+  categorias: string[] = [];
+  tiposPorCategoria: Record<string, { tipo: string; total: number }[]> = {};
+  puntosPorTipo: Record<string, Evento['puntos']> = {};
+  coloresPorTipo: Record<string, string> = {};
+  tipoSeleccionado: string | null = null;
+  categoriaSeleccionada: string | null = null;
+
+  // Paleta de colores para tipos
+  readonly palette = [
+    '#7d0012', '#1b5e20', '#1565c0', '#fbc02d', '#8e24aa', '#00838f', '#e65100', '#c62828', '#2e7d32', '#283593', '#ad1457', '#00695c', '#f9a825', '#4527a0', '#37474f'
+  ];
+
+  // --- NUEVO: Barras dinámicas para gráficas ---
+  get barrasCategoria() {
+    const tipos = this.getTiposActivos();
+    const total = tipos.reduce((acc, t) => acc + t.total, 0) || 1;
+    return tipos.map(t => ({
+      label: t.tipo,
+      value: Math.round((t.total / total) * 100),
+      color: this.getColorTipo(t.tipo)
+    }));
+  }
 
   private map?: L.Map;
   private markerLayer: L.LayerGroup = L.layerGroup();
@@ -73,7 +187,7 @@ export class EstadisticasComponent implements AfterViewInit, OnDestroy {
   private readonly fullscreenChangeHandler = () => {
     const fsEl = (this.document as Document).fullscreenElement;
     this.isMapFullscreen = fsEl === this.mapPanelRef?.nativeElement;
-    setTimeout(() => this.map?.invalidateSize(), 80);
+    this.scheduleMapResize();
   };
 
   constructor(
@@ -82,81 +196,8 @@ export class EstadisticasComponent implements AfterViewInit, OnDestroy {
     @Inject(DOCUMENT) private readonly document: Document
   ) {}
 
-  readonly tabs: Array<{ key: TabKey; label: string }> = [
-    { key: 'filtros', label: 'Filtros' },
-    { key: 'afectaciones', label: 'Afectaciones a la Amenaza' },
-    { key: 'narcotrafico', label: 'Narcotrafico' },
-    { key: 'mineria', label: 'Mineria Ilegal' }
-  ];
+  // --- FIN NUEVO ---
 
-  readonly sideCards: Record<TabKey, Array<{ title: string; value: string; detail: string }>> = {
-    filtros: [
-      { title: 'Cobertura', value: '32', detail: 'Municipios priorizados' },
-      { title: 'Ventanas', value: '7', detail: 'Escenarios configurados' },
-      { title: 'Alertas', value: '14', detail: 'Cruces pendientes' }
-    ],
-    afectaciones: [
-      { title: 'Eventos', value: '128', detail: 'Registros en seguimiento' },
-      { title: 'Criticos', value: '19', detail: 'Afectaciones con alta severidad' },
-      { title: 'Tendencia', value: '+8%', detail: 'Comparado con el ultimo corte' }
-    ],
-    narcotrafico: [
-      { title: 'Rutas', value: '11', detail: 'Corredores identificados' },
-      { title: 'Puntos', value: '46', detail: 'Nodos operacionales mapeados' },
-      { title: 'Incidencia', value: 'Alta', detail: 'Actividad concentrada al suroccidente' }
-    ],
-    mineria: [
-      { title: 'Frentes', value: '23', detail: 'Zonas con extraccion ilegal' },
-      { title: 'Impacto', value: '61%', detail: 'Area con riesgo ambiental' },
-      { title: 'Control', value: '9', detail: 'Operaciones articuladas' }
-    ]
-  };
-
-  readonly chartBars: Record<TabKey, Array<{ label: string; value: number }>> = {
-    filtros: [
-      { label: 'Norte', value: 42 },
-      { label: 'Centro', value: 66 },
-      { label: 'Sur', value: 58 }
-    ],
-    afectaciones: [
-      { label: 'Amenaza A', value: 78 },
-      { label: 'Amenaza B', value: 54 },
-      { label: 'Amenaza C', value: 31 }
-    ],
-    narcotrafico: [
-      { label: 'Corredor 1', value: 74 },
-      { label: 'Corredor 2', value: 63 },
-      { label: 'Corredor 3', value: 47 }
-    ],
-    mineria: [
-      { label: 'Frente 1', value: 51 },
-      { label: 'Frente 2', value: 68 },
-      { label: 'Frente 3', value: 39 }
-    ]
-  };
-
-  readonly markers: Record<TabKey, Array<{ lat: number; lng: number; label: string }>> = {
-    filtros: [
-      { lat: 10.9685, lng: -74.7813, label: 'Filtro Norte' },
-      { lat: 4.711, lng: -74.0721, label: 'Filtro Central' },
-      { lat: 1.2136, lng: -77.2811, label: 'Filtro Sur' }
-    ],
-    afectaciones: [
-      { lat: 7.8891, lng: -72.4967, label: 'Afectacion 01' },
-      { lat: 3.4516, lng: -76.532, label: 'Afectacion 02' },
-      { lat: 2.4448, lng: -76.6147, label: 'Afectacion 03' }
-    ],
-    narcotrafico: [
-      { lat: 6.2518, lng: -77.403, label: 'Ruta Pacifico' },
-      { lat: 5.0689, lng: -75.5174, label: 'Ruta Andina' },
-      { lat: -0.2299, lng: -74.861, label: 'Ruta Amazonia' }
-    ],
-    mineria: [
-      { lat: 8.5847, lng: -73.0948, label: 'Bloque Norte' },
-      { lat: 5.6947, lng: -74.517, label: 'Bloque Central' },
-      { lat: 2.9386, lng: -75.2809, label: 'Bloque Sur' }
-    ]
-  };
 
   readonly opcionesSubFiltros = {
     regionales: ['Norte', 'Centro', 'Sur', 'Pacifico'],
@@ -170,21 +211,101 @@ export class EstadisticasComponent implements AfterViewInit, OnDestroy {
     clasificaciones: ['Reservado', 'Publico', 'Confidencial', 'Uso interno']
   };
 
-  get currentCards() {
-    return this.sideCards[this.activeTab];
+
+  // --- NUEVO: Inicialización de datos de ejemplo y helpers ---
+  ngOnInit() {
+    // Simular fetch de backend
+    this.eventos = this.getEventosEjemplo();
+    this.categorias = Array.from(new Set(this.eventos.map(e => e.categoria)));
+    this.tiposPorCategoria = {};
+    this.puntosPorTipo = {};
+    this.coloresPorTipo = {};
+    let colorIdx = 0;
+    for (const cat of this.categorias) {
+      const tipos = this.eventos.filter(e => e.categoria === cat).map(e => ({ tipo: e.tipo, total: e.cantidad_total }));
+      this.tiposPorCategoria[cat] = tipos;
+      for (const t of tipos) {
+        this.puntosPorTipo[t.tipo] = this.eventos.find(e => e.tipo === t.tipo)?.puntos || [];
+        if (!this.coloresPorTipo[t.tipo]) {
+          this.coloresPorTipo[t.tipo] = this.palette[colorIdx % this.palette.length];
+          colorIdx++;
+        }
+      }
+    }
+    // Selección inicial: primera categoría y tipo
+    this.categoriaSeleccionada = this.categorias[0] || null;
+    this.tipoSeleccionado = this.allTypesToken;
   }
 
-  get currentBars() {
-    return this.chartBars[this.activeTab];
+
+  setCategoria(cat: string) {
+    this.categoriaSeleccionada = cat;
+    this.tipoSeleccionado = this.allTypesToken;
+    this.renderMarkers();
+    setTimeout(() => this.map?.invalidateSize(), 100);
   }
 
-  get currentMarkers() {
-    return this.markers[this.activeTab];
+
+  setTipo(tipo: string) {
+    this.tipoSeleccionado = tipo;
+    this.renderMarkers();
+    setTimeout(() => this.map?.invalidateSize(), 100);
   }
+
+  getTiposActivos() {
+    return this.categoriaSeleccionada ? this.tiposPorCategoria[this.categoriaSeleccionada] || [] : [];
+  }
+
+  getPuntosActivos() {
+    if (this.tipoSeleccionado === this.allTypesToken) {
+      return this.getTiposActivos().flatMap((tipo) =>
+        (this.puntosPorTipo[tipo.tipo] || []).map((punto) => ({
+          ...punto,
+          tipo: tipo.tipo
+        }))
+      );
+    }
+
+    return this.tipoSeleccionado
+      ? (this.puntosPorTipo[this.tipoSeleccionado] || []).map((punto) => ({
+          ...punto,
+          tipo: this.tipoSeleccionado as string
+        }))
+      : [];
+  }
+
+  isShowingAllTypes() {
+    return this.tipoSeleccionado === this.allTypesToken;
+  }
+
+  getMapExportFileName() {
+    const categoria = (this.categoriaSeleccionada || 'estadisticas')
+      .toLowerCase()
+      .replace(/\s+/g, '-')
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '');
+    const scope = this.isShowingAllTypes()
+      ? 'todos-los-tipos'
+      : (this.tipoSeleccionado || 'sin-tipo')
+          .toLowerCase()
+          .replace(/\s+/g, '-')
+          .normalize('NFD')
+          .replace(/[\u0300-\u036f]/g, '');
+
+    return `${categoria}-${scope}.kml`;
+  }
+
+  getColorTipo(tipo: string) {
+    return this.coloresPorTipo[tipo] || '#7d0012';
+  }
+
+  // --- FIN NUEVO ---
+
 
   ngAfterViewInit() {
     this.applyLeafletRuntimePatches();
     this.initializeMap();
+    this.scheduleMapResize(200);
     (this.document as Document).addEventListener('fullscreenchange', this.fullscreenChangeHandler);
     window.addEventListener('resize', this.markerResizeHandler);
   }
@@ -546,7 +667,17 @@ export class EstadisticasComponent implements AfterViewInit, OnDestroy {
     }
 
     this.isMapFullscreen = !this.isMapFullscreen;
-    setTimeout(() => this.map?.invalidateSize(), 80);
+    this.scheduleMapResize();
+  }
+
+  private scheduleMapResize(delay = 80) {
+    const resizeMap = () => {
+      this.map?.invalidateSize();
+      this.cdr.markForCheck();
+    };
+
+    setTimeout(resizeMap, delay);
+    setTimeout(resizeMap, delay + 180);
   }
 
   abrirCoordenadasModal() {
@@ -705,6 +836,7 @@ export class EstadisticasComponent implements AfterViewInit, OnDestroy {
 
   exportDrawnData() {
     const allLayers: L.Layer[] = [
+      ...this.markerLayer.getLayers(),
       ...this.editableLayers.getLayers(),
       ...this.measurementLayer.getLayers()
     ];
@@ -713,7 +845,9 @@ export class EstadisticasComponent implements AfterViewInit, OnDestroy {
       .map((layer, index) => this.layerToKml(layer, index + 1))
       .filter((placemark): placemark is string => Boolean(placemark));
 
-    const kml = `<?xml version="1.0" encoding="UTF-8"?>\n<kml xmlns="http://www.opengis.net/kml/2.2">\n  <Document>\n    <name>Mapa operativo</name>\n    ${placemarks.join('\n    ')}\n  </Document>\n</kml>`;
+    const styles = this.buildKmlStyles();
+
+    const kml = `<?xml version="1.0" encoding="UTF-8"?>\n<kml xmlns="http://www.opengis.net/kml/2.2">\n  <Document>\n    <name>Mapa operativo</name>\n    ${styles.join('\n    ')}\n    ${placemarks.join('\n    ')}\n  </Document>\n</kml>`;
 
     const blob = new Blob([kml], {
       type: 'application/vnd.google-earth.kml+xml;charset=utf-8'
@@ -722,7 +856,7 @@ export class EstadisticasComponent implements AfterViewInit, OnDestroy {
     const url = URL.createObjectURL(blob);
     const anchor = (this.document as Document).createElement('a');
     anchor.href = url;
-    anchor.download = 'mapa-operativo.kml';
+    anchor.download = this.getMapExportFileName();
     anchor.click();
     URL.revokeObjectURL(url);
   }
@@ -732,10 +866,20 @@ export class EstadisticasComponent implements AfterViewInit, OnDestroy {
       return this.circleToKml(layer, index);
     }
 
+    if (layer instanceof L.CircleMarker) {
+      const point = layer.getLatLng();
+      const label = this.getLayerLabel(layer, `Punto ${index}`);
+      const styleId = this.getKmlStyleId(layer);
+      const description = this.buildKmlDescription(layer);
+      return `<Placemark><name>${this.escapeHtml(label)}</name>${styleId ? `<styleUrl>#${styleId}</styleUrl>` : ''}${description ? `<description><![CDATA[${description}]]></description>` : ''}<Point><coordinates>${point.lng},${point.lat},0</coordinates></Point></Placemark>`;
+    }
+
     if (layer instanceof L.Marker) {
       const point = layer.getLatLng();
       const label = this.getLayerLabel(layer, `Punto ${index}`);
-      return `<Placemark><name>${this.escapeHtml(label)}</name><Point><coordinates>${point.lng},${point.lat},0</coordinates></Point></Placemark>`;
+      const styleId = this.getKmlStyleId(layer);
+      const description = this.buildKmlDescription(layer);
+      return `<Placemark><name>${this.escapeHtml(label)}</name>${styleId ? `<styleUrl>#${styleId}</styleUrl>` : ''}${description ? `<description><![CDATA[${description}]]></description>` : ''}<Point><coordinates>${point.lng},${point.lat},0</coordinates></Point></Placemark>`;
     }
 
     if (layer instanceof L.Polygon) {
@@ -747,7 +891,9 @@ export class EstadisticasComponent implements AfterViewInit, OnDestroy {
       }
 
       const label = this.getLayerLabel(layer, `Poligono ${index}`);
-      return `<Placemark><name>${this.escapeHtml(label)}</name><Polygon><outerBoundaryIs><LinearRing><coordinates>${this.formatKmlCoordinates(outerRing, true)}</coordinates></LinearRing></outerBoundaryIs></Polygon></Placemark>`;
+      const styleId = this.getKmlStyleId(layer);
+      const description = this.buildKmlDescription(layer);
+      return `<Placemark><name>${this.escapeHtml(label)}</name>${styleId ? `<styleUrl>#${styleId}</styleUrl>` : ''}${description ? `<description><![CDATA[${description}]]></description>` : ''}<Polygon><outerBoundaryIs><LinearRing><coordinates>${this.formatKmlCoordinates(outerRing, true)}</coordinates></LinearRing></outerBoundaryIs></Polygon></Placemark>`;
     }
 
     if (layer instanceof L.Polyline) {
@@ -758,7 +904,9 @@ export class EstadisticasComponent implements AfterViewInit, OnDestroy {
       }
 
       const label = this.getLayerLabel(layer, `Linea ${index}`);
-      return `<Placemark><name>${this.escapeHtml(label)}</name><LineString><tessellate>1</tessellate><coordinates>${this.formatKmlCoordinates(points)}</coordinates></LineString></Placemark>`;
+      const styleId = this.getKmlStyleId(layer);
+      const description = this.buildKmlDescription(layer);
+      return `<Placemark><name>${this.escapeHtml(label)}</name>${styleId ? `<styleUrl>#${styleId}</styleUrl>` : ''}${description ? `<description><![CDATA[${description}]]></description>` : ''}<LineString><tessellate>1</tessellate><coordinates>${this.formatKmlCoordinates(points)}</coordinates></LineString></Placemark>`;
     }
 
     return null;
@@ -768,7 +916,9 @@ export class EstadisticasComponent implements AfterViewInit, OnDestroy {
     const center = circle.getLatLng();
     const ring = this.buildCircleRing(center, circle.getRadius());
     const label = this.getLayerLabel(circle, `Circulo ${index}`);
-    return `<Placemark><name>${this.escapeHtml(label)}</name><Polygon><outerBoundaryIs><LinearRing><coordinates>${this.formatKmlCoordinates(ring, true)}</coordinates></LinearRing></outerBoundaryIs></Polygon></Placemark>`;
+    const styleId = this.getKmlStyleId(circle);
+    const description = this.buildKmlDescription(circle);
+    return `<Placemark><name>${this.escapeHtml(label)}</name>${styleId ? `<styleUrl>#${styleId}</styleUrl>` : ''}${description ? `<description><![CDATA[${description}]]></description>` : ''}<Polygon><outerBoundaryIs><LinearRing><coordinates>${this.formatKmlCoordinates(ring, true)}</coordinates></LinearRing></outerBoundaryIs></Polygon></Placemark>`;
   }
 
   private buildCircleRing(center: L.LatLng, radiusInMeters: number) {
@@ -820,6 +970,72 @@ export class EstadisticasComponent implements AfterViewInit, OnDestroy {
     }).feature;
 
     return feature?.properties?.label || feature?.properties?.shapeType || fallback;
+  }
+
+  private getKmlStyleId(layer: L.Layer) {
+    const feature = (layer as L.Layer & {
+      feature?: { properties?: { kmlStyleId?: string } };
+    }).feature;
+
+    return feature?.properties?.kmlStyleId || null;
+  }
+
+  private buildKmlDescription(layer: L.Layer) {
+    const feature = (layer as L.Layer & {
+      feature?: { properties?: Record<string, unknown> };
+    }).feature;
+    const properties = feature?.properties || {};
+
+    return Object.entries(properties)
+      .filter(([key, value]) =>
+        value !== undefined &&
+        value !== null &&
+        value !== '' &&
+        !['kmlStyleId', 'shapeType', 'label'].includes(key)
+      )
+      .map(([key, value]) => `<strong>${this.escapeHtml(this.capitalize(key))}:</strong> ${this.escapeHtml(String(value))}`)
+      .join('<br>');
+  }
+
+  private buildKmlStyles() {
+    const styles = new Map<string, string>();
+
+    Object.entries(this.coloresPorTipo).forEach(([tipo, color]) => {
+      const styleId = this.getTipoStyleId(tipo);
+      styles.set(styleId, this.createKmlStyle(styleId, color));
+    });
+
+    styles.set('editable-default', this.createKmlStyle('editable-default', '#7d0012'));
+    styles.set('measurement-default', this.createKmlStyle('measurement-default', '#7d0012'));
+
+    return Array.from(styles.values());
+  }
+
+  private getTipoStyleId(tipo: string) {
+    return `tipo-${tipo
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^a-z0-9]+/g, '-')}`;
+  }
+
+  private createKmlStyle(styleId: string, hexColor: string) {
+    const color = this.hexToKmlColor(hexColor);
+    const colorSoft = this.hexToKmlColor(hexColor, '66');
+
+    return `<Style id="${styleId}"><IconStyle><color>${color}</color><scale>1.1</scale><Icon><href>http://maps.google.com/mapfiles/kml/paddle/wht-blank.png</href></Icon></IconStyle><LineStyle><color>${color}</color><width>3</width></LineStyle><PolyStyle><color>${colorSoft}</color></PolyStyle></Style>`;
+  }
+
+  private hexToKmlColor(hexColor: string, alpha = 'ff') {
+    const normalized = hexColor.replace('#', '');
+    const expanded = normalized.length === 3
+      ? normalized.split('').map((char) => char + char).join('')
+      : normalized.padEnd(6, '0').slice(0, 6);
+    const red = expanded.slice(0, 2);
+    const green = expanded.slice(2, 4);
+    const blue = expanded.slice(4, 6);
+
+    return `${alpha}${blue}${green}${red}`;
   }
 
   private layerToFeature(layer: L.Layer) {
@@ -962,43 +1178,72 @@ export class EstadisticasComponent implements AfterViewInit, OnDestroy {
   }
 
   private renderMarkers() {
-    if (!this.map) {
-      return;
-    }
-
+    if (!this.map) return;
     this.markerLayer.clearLayers();
-
+    const puntos = this.getPuntosActivos();
     const bounds: L.LatLngTuple[] = [];
-
-    for (const marker of this.currentMarkers) {
-      const latLng: L.LatLngTuple = [marker.lat, marker.lng];
+    for (const punto of puntos) {
+      const latLng: L.LatLngTuple = [punto.latitud, punto.longitud];
       bounds.push(latLng);
-
-      L.marker(latLng, {
-        icon: L.divIcon({
-          className: 'stats-map-pin',
-          html: '<span></span>',
-          iconSize: [18, 18],
-          iconAnchor: [9, 9]
-        })
+      const tipo = 'tipo' in punto ? String(punto.tipo) : this.tipoSeleccionado || 'Tipo';
+      const color = this.getColorTipo(tipo);
+      const marker = L.circleMarker(latLng, {
+        radius: 12,
+        color,
+        fillColor: color,
+        fillOpacity: 0.85,
+        weight: 2
       })
-        .bindPopup(`<strong>${marker.label}</strong>`, { closeButton: false, offset: [0, -8] })
-        .addTo(this.markerLayer);
-    }
+        .bindPopup(
+          `<strong>${this.escapeHtml(tipo)}</strong><br>
+          <b>Cantidad:</b> ${punto.cantidad}<br>
+          <b>Ubicación:</b> ${this.escapeHtml(punto.ubicacion)}<br>
+          <b>División:</b> ${this.escapeHtml(punto.division)}`,
+          { closeButton: false, offset: [0, -8] }
+        );
 
+      (marker as L.CircleMarker & { feature?: Record<string, unknown> }).feature = {
+        type: 'Feature',
+        properties: {
+          label: tipo,
+          tipo,
+          cantidad: punto.cantidad,
+          ubicacion: punto.ubicacion,
+          division: punto.division,
+          kmlStyleId: this.getTipoStyleId(tipo),
+          shapeType: 'json-marker'
+        },
+        geometry: {
+          type: 'Point',
+          coordinates: [punto.longitud, punto.latitud]
+        }
+      };
+
+      marker.addTo(this.markerLayer);
+    }
     if (bounds.length) {
       this.map.fitBounds(bounds, { padding: [40, 40], maxZoom: 7 });
     }
   }
 
-  setTab(tab: TabKey) {
-    this.activeTab = tab;
-    this.renderMarkers();
-
-    if (tab === 'filtros') {
-      this.abrirFiltrosModal();
-    }
+  // --- Datos de ejemplo ---
+  getEventosEjemplo(): Evento[] {
+    return [
+      { id: 1, categoria: 'Afectación al enemigo', tipo: 'Capturas', cantidad_total: 12, puntos: [ { latitud: 7.1193, longitud: -73.1227, cantidad: 3, ubicacion: 'Antioquia', division: 'DIV07' }, { latitud: 6.8000, longitud: -73.2000, cantidad: 4, ubicacion: 'Santander', division: 'DIV02' }, { latitud: 7.2000, longitud: -72.9000, cantidad: 5, ubicacion: 'Norte de Santander', division: 'DIV30' } ] },
+      { id: 2, categoria: 'Afectación al enemigo', tipo: 'Presentaciones', cantidad_total: 8, puntos: [ { latitud: 4.1420, longitud: -73.6266, cantidad: 3, ubicacion: 'Meta', division: 'DIV04' }, { latitud: 2.5700, longitud: -72.6400, cantidad: 5, ubicacion: 'Guaviare', division: 'DIV22' } ] },
+      { id: 3, categoria: 'Afectación al enemigo', tipo: 'Sometimientos', cantidad_total: 6, puntos: [ { latitud: 1.2892, longitud: -77.3579, cantidad: 2, ubicacion: 'Nariño', division: 'DIV03' }, { latitud: 2.4448, longitud: -76.6147, cantidad: 4, ubicacion: 'Cauca', division: 'DIV08' } ] },
+      { id: 4, categoria: 'Afectación al narcotráfico', tipo: 'Laboratorios destruidos', cantidad_total: 5, puntos: [ { latitud: 0.4350, longitud: -76.5270, cantidad: 2, ubicacion: 'Putumayo', division: 'DIV06' }, { latitud: 1.6144, longitud: -75.6062, cantidad: 3, ubicacion: 'Caquetá', division: 'DIV12' } ] },
+      { id: 5, categoria: 'Afectación al narcotráfico', tipo: 'Incautación de cocaína', cantidad_total: 220, puntos: [ { latitud: 3.4516, longitud: -76.5320, cantidad: 120, ubicacion: 'Valle del Cauca', division: 'DIV03' }, { latitud: 8.0847, longitud: -72.8000, cantidad: 100, ubicacion: 'Norte de Santander', division: 'DIV30' } ] },
+      { id: 6, categoria: 'Afectación al narcotráfico', tipo: 'Incautación de marihuana', cantidad_total: 180, puntos: [ { latitud: 2.4448, longitud: -76.6147, cantidad: 80, ubicacion: 'Cauca', division: 'DIV08' }, { latitud: 3.8000, longitud: -75.9000, cantidad: 100, ubicacion: 'Huila', division: 'DIV05' } ] },
+      { id: 7, categoria: 'Afectación minería ilegal', tipo: 'Capturas', cantidad_total: 9, puntos: [ { latitud: 5.6947, longitud: -76.6610, cantidad: 5, ubicacion: 'Chocó', division: 'DIV15' }, { latitud: 6.2442, longitud: -75.5812, cantidad: 4, ubicacion: 'Antioquia', division: 'DIV07' } ] },
+      { id: 8, categoria: 'Afectación minería ilegal', tipo: 'UPM (Unidades de Producción Minera)', cantidad_total: 7, puntos: [ { latitud: 8.6704, longitud: -74.0300, cantidad: 3, ubicacion: 'Bolívar', division: 'DIV01' }, { latitud: 7.5000, longitud: -74.5000, cantidad: 4, ubicacion: 'Córdoba', division: 'DIV11' } ] },
+      { id: 9, categoria: 'Afectación minería ilegal', tipo: 'Motores incautados', cantidad_total: 11, puntos: [ { latitud: 5.6900, longitud: -76.6500, cantidad: 6, ubicacion: 'Chocó', division: 'DIV15' }, { latitud: 6.5000, longitud: -74.0000, cantidad: 5, ubicacion: 'Antioquia', division: 'DIV07' } ] },
+      { id: 10, categoria: 'Afectación propias tropas', tipo: 'Heridos', cantidad_total: 5, puntos: [ { latitud: 7.0847, longitud: -70.7591, cantidad: 3, ubicacion: 'Arauca', division: 'DIV18' }, { latitud: 2.5729, longitud: -72.6459, cantidad: 2, ubicacion: 'Guaviare', division: 'DIV22' } ] },
+      { id: 11, categoria: 'Afectación propias tropas', tipo: 'Asesinados', cantidad_total: 3, puntos: [ { latitud: 1.5000, longitud: -75.5000, cantidad: 1, ubicacion: 'Caquetá', division: 'DIV12' }, { latitud: 7.0000, longitud: -70.7000, cantidad: 2, ubicacion: 'Arauca', division: 'DIV18' } ] }
+    ];
   }
+
+
 
   toggleSidebar() {
     this.sidebarVisible = !this.sidebarVisible;

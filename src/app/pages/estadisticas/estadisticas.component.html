@@ -7,33 +7,62 @@
         {{ sidebarVisible ? 'Ocultar menu' : 'Mostrar menu' }}
       </button>
 
-      <nav class="stats-nav" aria-label="Navegacion estadistica">
-        <button
-          *ngFor="let tab of tabs"
-          type="button"
-          class="stats-nav-button"
-          [class.stats-nav-button-active]="activeTab === tab.key"
-          (click)="setTab(tab.key)">
-          {{ tab.label }}
+      <div class="stats-topbar-actions">
+        <button class="filtro-btn filtro-btn-top" (click)="mostrarFiltrosModal = true">
+          <span>Filtrar</span>
+          <svg width="18" height="18" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M3 5h14M6 10h8M9 15h2" stroke="#7d0012" stroke-width="2" stroke-linecap="round"/>
+          </svg>
         </button>
-      </nav>
+      </div>
     </header>
 
     <section class="stats-board" [class.stats-board-map-focus]="isMapFullscreen">
       <aside class="stats-side">
-        <article class="stats-card stats-card-highlight">
-          <span class="card-kicker">Resumen</span>
-          <strong>{{ currentCards[0].value }}</strong>
-          <p>{{ currentCards[0].title }}</p>
-          <small>{{ currentCards[0].detail }}</small>
-        </article>
+        <div class="stats-categorias">
+          <div class="categoria-tabs">
+            <button *ngFor="let cat of categorias"
+                    class="categoria-tab"
+                    [class.categoria-tab-activa]="cat === categoriaSeleccionada"
+                    (click)="setCategoria(cat)">
+              {{ cat }}
+            </button>
+          </div>
 
-        <article class="stats-card" *ngFor="let card of currentCards.slice(1)">
-          <span class="card-kicker">Indicador</span>
-          <strong>{{ card.value }}</strong>
-          <p>{{ card.title }}</p>
-          <small>{{ card.detail }}</small>
-        </article>
+          <div class="categoria-tarjetas categoria-tarjetas-scroll">
+            <article class="stats-card stats-card-highlight" *ngIf="categoriaSeleccionada">
+              <span class="card-kicker">Total</span>
+              <strong>
+                {{ getTiposActivos().reduce((acc, t) => acc + t.total, 0) }}
+              </strong>
+              <p>{{ categoriaSeleccionada }}</p>
+              <small>Eventos totales</small>
+            </article>
+
+            <article class="stats-card"
+                     [class.stats-card-activa]="isShowingAllTypes()"
+                     (click)="setTipo(allTypesToken)">
+              <span class="card-kicker">Vista</span>
+              <strong>{{ getTiposActivos().length }}</strong>
+              <p>Todos los tipos</p>
+              <small>Mostrar toda la información en el mapa</small>
+            </article>
+
+            <ng-container *ngFor="let tipo of getTiposActivos()">
+              <article class="stats-card"
+                       [class.stats-card-activa]="tipo.tipo === tipoSeleccionado"
+                       (click)="setTipo(tipo.tipo)"
+                       [style.borderLeft]="'6px solid ' + getColorTipo(tipo.tipo)">
+                <span class="card-kicker">Tipo</span>
+                <strong>{{ tipo.total }}</strong>
+                <p>{{ tipo.tipo }}</p>
+                <small>Click para ver en mapa</small>
+              </article>
+            </ng-container>
+          </div>
+
+          <button class="popup-btn" *ngIf="categoriaSeleccionada" (click)="mostrarPivotModal = true">Ver tabla pivote</button>
+        </div>
       </aside>
 
       <section #mapPanel class="map-panel" [class.map-panel-fullscreen]="isMapFullscreen">
@@ -44,7 +73,6 @@
             <span class="map-chip soft">{{ cursorCoordinates }}</span>
             <span class="map-chip soft" [class.map-chip-alert]="measureModeEnabled">{{ measurementSummary }}</span>
           </div>
-
           <div class="map-toolbar-group map-toolbar-actions">
             <button type="button" class="map-action-button" [class.map-action-button-active]="textModeEnabled" (click)="toggleTextMode()">
               {{ textModeEnabled ? 'Cancelar texto' : 'Crear texto' }}
@@ -52,56 +80,95 @@
             <button type="button" class="map-action-button" [class.map-action-button-active]="measureModeEnabled" (click)="toggleMeasureMode()">
               {{ measureModeEnabled ? 'Salir de medir' : 'Medir distancia' }}
             </button>
-            <button type="button" class="map-action-button" (click)="clearMeasurement()">
-              Limpiar medida
-            </button>
-            <button type="button" class="map-action-button" (click)="abrirCoordenadasModal()">
-              Punto por coordenadas
-            </button>
-            <button type="button" class="map-action-button" (click)="exportDrawnData()">
-              Descargar KML
-            </button>
+            <button type="button" class="map-action-button" (click)="clearMeasurement()">Limpiar medida</button>
+            <button type="button" class="map-action-button" (click)="abrirCoordenadasModal()">Punto por coordenadas</button>
+            <button type="button" class="map-action-button" (click)="exportDrawnData()">Descargar KML completo</button>
             <button type="button" class="map-action-button" (click)="toggleFullscreen()">
               {{ isMapFullscreen ? 'Salir de pantalla completa' : 'Pantalla completa' }}
             </button>
+            <button class="popup-btn" (click)="mostrarGraficasModal = true">Ver gráficas</button>
+            <button class="popup-btn" (click)="mostrarTablaModal = true" *ngIf="categoriaSeleccionada">Ver tabla</button>
+          </div>
+        </div>
+        <div #leafletMap class="digital-map" [class.text-mode-active]="textModeEnabled" [class.measure-mode-active]="measureModeEnabled" aria-label="Mapa digital operativo"></div>
+      </section>
+    </section>
+
+    <div class="popup-modal-backdrop" *ngIf="mostrarGraficasModal" (click)="mostrarGraficasModal = false">
+      <div id="graficas-modal-content" class="popup-modal graficas-modal" (click)="$event.stopPropagation()">
+        <div class="popup-modal-head">
+          <span class="card-kicker">Gráficas</span>
+          <h2>{{ categoriaSeleccionada || 'Comparativo territorial' }}</h2>
+          <button class="popup-close" (click)="mostrarGraficasModal = false">×</button>
+        </div>
+
+        <div class="chart-bars">
+          <div class="chart-row" *ngFor="let item of barrasCategoria">
+            <span class="chart-label tooltip-parent"
+                  (mousemove)="setTooltipPosition($event)"
+                  (mouseleave)="clearTooltipPosition()">
+              {{ item.label }}
+              <span class="custom-tooltip">{{ item.label }}</span>
+            </span>
+
+            <div class="chart-track">
+              <div class="chart-fill"
+                   [style.width.%]="item.value"
+                   [style.background]="item.color">
+              </div>
+            </div>
+
+            <span class="chart-value">{{ item.value }}%</span>
           </div>
         </div>
 
-        <div #leafletMap class="digital-map" [class.text-mode-active]="textModeEnabled" [class.measure-mode-active]="measureModeEnabled" aria-label="Mapa digital operativo"></div>
-      </section>
+        <button class="popup-download" (click)="descargarGraficasComoImagen()">
+          Descargar gráficas
+        </button>
+      </div>
+    </div>
 
-      <aside class="stats-side stats-side-right">
-        <article class="chart-card">
-          <div class="chart-head">
-            <div>
-              <span class="card-kicker">Graficas</span>
-              <h2>Comparativo territorial</h2>
-            </div>
-            <span class="chart-badge">3 series</span>
-          </div>
+    <div class="popup-modal-backdrop" *ngIf="mostrarTablaModal" (click)="mostrarTablaModal = false">
+      <div class="popup-modal" (click)="$event.stopPropagation()">
+        <div class="popup-modal-head">
+          <span class="card-kicker">Tabla</span>
+          <h2>Tabla pivote por división</h2>
+          <button class="popup-close" (click)="mostrarTablaModal = false">×</button>
+        </div>
 
-          <div class="chart-bars">
-            <div class="chart-row" *ngFor="let item of currentBars">
-              <span>{{ item.label }}</span>
-              <div class="chart-track">
-                <div class="chart-fill" [style.width.%]="item.value"></div>
-              </div>
-              <strong>{{ item.value }}%</strong>
-            </div>
-          </div>
-        </article>
+        <div class="mini-table-block">
+          <table class="mini-table">
+            <thead>
+              <tr>
+                <th>TIPO</th>
+                <th *ngFor="let division of getPivotTableData().divisiones">{{ division }}</th>
+                <th>TOTAL</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let row of getPivotTableData().rows">
+                <td>{{ row.tipo }}</td>
+                <td *ngFor="let division of getPivotTableData().divisiones">
+                  {{ row.valores[division] || '' }}
+                </td>
+                <td>{{ row.total }}</td>
+              </tr>
+              <tr class="mini-table-total" *ngIf="getPivotTableData().rows.length">
+                <td>TOTAL</td>
+                <td *ngFor="let division of getPivotTableData().divisiones">
+                  {{ getPivotTableData().totalGeneral[division] || '' }}
+                </td>
+                <td>{{ getPivotTableData().totalGlobal }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
 
-        <article class="chart-card compact">
-          <span class="card-kicker">Cuadros</span>
-          <h2>Lectura ejecutiva</h2>
-          <ul class="insight-list">
-            <li>Mayor concentracion de eventos en el corredor central.</li>
-            <li>La capa activa cambia segun el menu superior seleccionado.</li>
-            <li>Espacio reservado para graficas y cuadros de mando adicionales.</li>
-          </ul>
-        </article>
-      </aside>
-    </section>
+        <button class="popup-download" (click)="descargarTablaComoCSV()">
+          Descargar tabla
+        </button>
+      </div>
+    </div>
   </main>
 </div>
 
@@ -284,17 +351,6 @@
         <div class="filter-block-head">
           <span class="dms-group-title">Sub filtros</span>
           <small>Segmentacion operativa</small>
-        </div>
-
-        <div class="filter-tab-row filter-tab-row-inline">
-          <button
-            *ngFor="let tab of tabs"
-            type="button"
-            class="filter-tab-button"
-            [class.filter-tab-button-active]="activeTab === tab.key"
-            (click)="setTab(tab.key)">
-            {{ tab.label }}
-          </button>
         </div>
       </section>
 
