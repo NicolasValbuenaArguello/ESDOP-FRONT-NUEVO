@@ -1,5 +1,12 @@
 export const environment = {
-production: true,
-apiUrl: '/api/login',
-apiUrl_2: '/api/usuarios'
+  production: true,
+
+  apiBase: '/api',
+
+  services: {
+    auth: '/login',
+    usuarios: '/usuarios',
+    dashboard: '/dashboard',
+    mapa: '/estadistica-mapa'
+  }
 };

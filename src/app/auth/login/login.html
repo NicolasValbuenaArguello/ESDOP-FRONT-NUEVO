@@ -1,3 +1,4 @@
+
 <div class="login-container">
   <div class="background-shape background-shape-left"></div>
   <div class="background-shape background-shape-right"></div>
@@ -22,11 +23,15 @@
           <article class="info-item" *ngFor="let punto of puntosInteres">
             <h2>{{ punto.titulo }}</h2>
             <p>{{ punto.descripcion }}</p>
+                                        <button type="button" class="legal-trigger" (click)="mostrarReservaLegal = true">
+        Ver reserva legal y tratamiento de la informacion
+      </button>
           </article>
         </div>
       </div>
 
       <div class="support-card">
+
         <p class="support-title">Acceso institucional</p>
         <p>
           Usa tus credenciales asignadas. Si presentas novedades de acceso, reportalas por el canal interno de soporte.
@@ -72,18 +77,74 @@
           </div>
         </div>
 
-        <p class="error" *ngIf="error">{{ error }}</p>
-
         <button class="btn-login" type="submit" [disabled]="cargando || loginForm.invalid">
           {{ cargando ? 'Ingresando...' : 'Ingresar' }}
         </button>
       </form>
-
-      <button type="button" class="legal-trigger" (click)="mostrarReservaLegal = true">
-        Ver reserva legal y tratamiento de la informacion
-      </button>
+      
     </article>
   </section>
+<div *ngIf="mostrarCaptcha" style="margin-top: 15px;">
+  <div
+    class="g-recaptcha"
+    [attr.data-sitekey]="'TU_SITE_KEY'"
+    data-callback="captchaCallback">
+  </div>
+</div>
+
+  <!-- Modal de error GLOBAL (fuera de la tarjeta de login y del section) -->
+  <div class="modal-backdrop" *ngIf="mostrarErrorModal && !mostrarReservaLegal">
+    <div class="modal-error" role="alertdialog" aria-modal="true" tabindex="-1">
+      <div class="modal-error-content">
+        <h3>Error de acceso</h3>
+        <p>{{ error }}</p>
+        <button class="btn-login" type="button" (click)="cerrarErrorModal()">Cerrar</button>
+      </div>
+    </div>
+  </div>
+  <style>
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.4);
+  z-index: 9999999  !important; /* 🔥 esto es la clave */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+  .modal-error {
+    position: relative;
+  z-index: 1000000;
+    background: #fff;
+    border-radius: 12px;
+    box-shadow: 0 4px 32px #0003;
+    min-width: 320px;
+    max-width: 90vw;
+    padding: 0;
+    outline: none;
+    animation: modalIn 0.2s;
+  }
+  .modal-error-content {
+    padding: 28px 24px 20px 24px;
+    text-align: center;
+  }
+  .modal-error-content h3 {
+    color: #b71c1c;
+    margin-top: 0;
+    margin-bottom: 12px;
+    font-size: 1.3em;
+    font-weight: 700;
+  }
+  .modal-error-content p {
+    color: #b71c1c;
+    margin-bottom: 18px;
+    font-size: 1.08em;
+  }
+  @keyframes modalIn {
+    from { transform: scale(0.95); opacity: 0; }
+    to { transform: scale(1); opacity: 1; }
+  }
+  </style>
 
   <section class="legal-modal-backdrop" *ngIf="mostrarReservaLegal">
     <article class="legal-modal" aria-labelledby="legal-title" aria-modal="true" role="dialog">
@@ -106,7 +167,6 @@
         El acceso no autorizado, la divulgacion indebida, la alteracion o el uso por fuera de las finalidades
         institucionales puede generar consecuencias disciplinarias, administrativas y penales.
       </p>
-
       <div class="legal-actions">
         <button type="button" class="btn-login" (click)="cerrarReservaLegal()">Entendido</button>
       </div>

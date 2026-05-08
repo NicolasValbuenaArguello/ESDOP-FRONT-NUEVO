@@ -4,9 +4,10 @@
 
   <div class="sidebar-topbar">
     <a
+      *ngIf="inicio as homeBrand; else brandWithoutRoute"
       class="brand-link"
-      [routerLink]="inicio.ruta"
-      [class.brand-link-active]="estaRutaActiva(inicio.ruta)">
+      [routerLink]="homeBrand.ruta"
+      [class.brand-link-active]="estaRutaActiva(homeBrand.ruta)">
       <span class="brand-logo">
         <img src="assets/jemop.png" alt="Logo ESDOP" width="28" height="28" loading="lazy">
       </span>
@@ -15,6 +16,17 @@
         <small>Panel operativo</small>
       </span>
     </a>
+    <ng-template #brandWithoutRoute>
+      <div class="brand-link">
+        <span class="brand-logo">
+          <img src="assets/jemop.png" alt="Logo ESDOP" width="28" height="28" loading="lazy">
+        </span>
+        <span class="brand-copy" *ngIf="!compacto">
+          <strong>ESDOP</strong>
+          <small>Panel operativo</small>
+        </span>
+      </div>
+    </ng-template>
 
     <div class="topbar-actions">
       <button type="button" class="icon-button" (click)="toggleCompacto()" [attr.aria-label]="compacto ? 'Expandir menú' : 'Colapsar menú'">
@@ -52,10 +64,10 @@
   </div>
 
   <nav class="menu-list">
-    <a
+    <a *ngIf="inicio as home"
       class="menu-link direct-link"
-      [class.menu-link-active]="estaRutaActiva(inicio.ruta)"
-      [routerLink]="inicio.ruta"
+      [class.menu-link-active]="estaRutaActiva(home.ruta)"
+      [routerLink]="home.ruta"
       routerLinkActive="menu-link-active"
       [routerLinkActiveOptions]="{ exact: true }"
       aria-label="Inicio">
@@ -67,10 +79,10 @@
         </svg>
       </span>
       <span class="menu-copy" *ngIf="!compacto">
-        <strong>{{ inicio.nombre }}</strong>
-        <small>{{ inicio.descripcion }}</small>
+        <strong>{{ home.nombre }}</strong>
+        <small>{{ home.descripcion }}</small>
       </span>
-      <span class="menu-state" *ngIf="!compacto && estaRutaActiva(inicio.ruta)">Activo</span>
+      <span class="menu-state" *ngIf="!compacto && estaRutaActiva(home.ruta)">Activo</span>
     </a>
 
     <section

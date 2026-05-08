@@ -1,4 +1,4 @@
-﻿<div class="home-layout" [class.sidebar-hidden]="!sidebarVisible">
+<div class="home-layout" [class.sidebar-hidden]="!sidebarVisible">
   <app-sidebar *ngIf="sidebarVisible" (ocultar)="toggleSidebar()"></app-sidebar>
 
   <main class="home-content" *ngIf="page$ | async as page">
@@ -9,9 +9,19 @@
     </header>
 
     <section class="hero-panel">
-      <p class="eyebrow">ESDOP</p>
-      <h1>{{ page['nombre'] || 'Home' }}</h1>
-      <p>{{ page['descripcion'] || 'Panel principal del sistema.' }}</p>
+      <div class="hero-copy">
+        <p class="eyebrow">ESDOP</p>
+        <h1>{{ page['nombre'] || 'Home' }}</h1>
+        <p>
+          {{ page['descripcion'] || 'Panel principal del sistema.' }}
+        </p>
+      </div>
+
+      <div class="hero-feature">
+        <span class="hero-feature-kicker">Capacidad central</span>
+        <strong>Analisis estrategico unificado</strong>
+        <p>Visualiza informacion operacional, geoespacial y estadistica desde una sola experiencia.</p>
+      </div>
     </section>
 
     <section class="quick-grid" aria-label="Resumen operativo">
@@ -22,14 +32,63 @@
       </article>
     </section>
 
-    <section class="work-panel">
-      <div>
-        <p class="eyebrow">Accesos</p>
-        <h2>Menu principal</h2>
-        <p>Selecciona una opcion del menu lateral para consultar o gestionar informacion del sistema.</p>
+    <section class="section-grid" aria-label="Informacion institucional">
+      <article class="info-card" *ngFor="let section of sections" (click)="openSection(section)">
+        <span class="eyebrow">{{ section.eyebrow }}</span>
+        <h2>{{ section.titulo }}</h2>
+        <p>{{ section.resumen }}</p>
+        <button type="button" class="inline-action">Ver detalle</button>
+      </article>
+    </section>
+
+    <section class="capabilities-panel">
+      <div class="capabilities-head">
+        <div>
+          <p class="eyebrow">Capacidades</p>
+          <h2>Enfoque tecnologico orientado a resultados</h2>
+        </div>
+        <button type="button" class="primary-link" (click)="openSection(sections[2])">Explorar enfoque</button>
       </div>
 
-      <a class="primary-link" routerLink="/usuarios/listado">Ver usuarios</a>
+      <div class="capabilities-grid">
+        <article class="capability-item" *ngFor="let capacidad of capacidades; let i = index">
+          <span>{{ (i + 1) < 10 ? '0' + (i + 1) : i + 1 }}</span>
+          <p>{{ capacidad }}</p>
+        </article>
+      </div>
     </section>
+
+    <footer class="home-footer">
+      <div class="home-footer-brand">
+        <img [src]="footerLogo" alt="Nuestro compromiso es Colombia" class="home-footer-logo">
+      </div>
+
+      <div class="home-footer-copy">
+        <p class="home-footer-title">Ejercito Nacional de colombia</p>
+        <p>Carrera 54 No. 26-25, edificio Fortaleza</p>
+        <p>Bogota D.C.</p>
+        <p>dirop@.ejercito.mil.co - www.ejercito.mil.co</p>
+      </div>
+    </footer>
   </main>
+</div>
+
+<div class="info-modal-backdrop" *ngIf="activeSection as section" (click)="closeSection()">
+  <section class="info-modal" (click)="$event.stopPropagation()">
+    <button type="button" class="modal-close" aria-label="Cerrar ventana" (click)="closeSection()">&times;</button>
+
+    <span class="eyebrow">{{ section.eyebrow }}</span>
+    <h2>{{ section.titulo }}</h2>
+
+    <div class="info-modal-copy">
+      <p *ngFor="let paragraph of section.contenido">{{ paragraph }}</p>
+    </div>
+
+    <div class="info-modal-capabilities" *ngIf="section.id === 'enfoque'">
+      <h3>Capacidades destacadas</h3>
+      <ul>
+        <li *ngFor="let capacidad of capacidades">{{ capacidad }}</li>
+      </ul>
+    </div>
+  </section>
 </div>

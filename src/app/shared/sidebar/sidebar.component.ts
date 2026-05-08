@@ -30,36 +30,9 @@ export class SidebarComponent implements OnInit, OnDestroy {
   readonly usuario: string;
   readonly unidad: string;
 
-  readonly inicio: MenuPage = {
-    nombre: 'Inicio',
-    ruta: '/home',
-    descripcion: 'Resumen general del sistema',
-    icono: 'home'
-  };
+  inicio: MenuPage | null = null;
 
-  readonly grupos: MenuGroup[] = [
-    {
-      menu: 'Usuarios',
-      icono: 'users',
-      paginas: [
-        { nombre: 'Gestión de usuarios', ruta: '/usuarios', descripcion: 'Altas, edición y permisos de usuarios', icono: 'users' }
-      ]
-    },
-    {
-      menu: 'Estadísticas',
-      icono: 'chart',
-      paginas: [
-        { nombre: 'Estadísticas', ruta: '/estadisticas', descripcion: 'Visualización de estadísticas', icono: 'chart' }
-      ]
-    },
-    {
-      menu: 'Configuración',
-      icono: 'settings',
-      paginas: [
-        { nombre: 'Configuración', ruta: '/configuracion', descripcion: 'Ajustes generales del sistema', icono: 'settings' }
-      ]
-    }
-  ];
+  grupos: MenuGroup[] = [];
 
   urlActual = '';
   menuAbierto = 'Usuarios';
@@ -69,6 +42,50 @@ export class SidebarComponent implements OnInit, OnDestroy {
   constructor(private auth: AuthService, private router: Router) {
     this.usuario = this.auth.obtenerUsuario() || 'Usuario';
     this.unidad = this.auth.obtenerUnidad() || 'Unidad no registrada';
+    this.cargarGruposDesdePermisos();
+  }
+
+  cargarGruposDesdePermisos() {
+    // Sidebar:
+    // este metodo transforma el arreglo de permisos persistido en localStorage
+    // a la estructura visual del menu. Solo aparecen paginas que
+    // `AuthService.tienePermisoPagina()` considere accesibles.
+    const permisos = this.auth.obtenerPermisos();
+    // HOME
+    const homePerm = permisos.find((p) => p.menu?.toUpperCase() === 'HOME' && this.auth.tienePermisoPagina(p));
+    this.inicio = homePerm ? {
+      nombre: homePerm.nombre,
+      ruta: homePerm.ruta,
+      descripcion: homePerm.nombre,
+      icono: 'home'
+    } : null;
+    // Agrupar por menú y filtrar solo los que puede_ver y no sean HOME
+    const gruposMap: { [menu: string]: MenuGroup } = {};
+    for (const permiso of permisos) {
+      if (!this.auth.tienePermisoPagina(permiso)) continue;
+      if (permiso.menu?.toUpperCase() === 'HOME') continue;
+      if (!gruposMap[permiso.menu]) {
+        gruposMap[permiso.menu] = {
+          menu: permiso.menu,
+          icono: this.obtenerIconoMenu(permiso.menu),
+          paginas: []
+        };
+      }
+      gruposMap[permiso.menu].paginas.push({
+        nombre: permiso.nombre,
+        ruta: permiso.ruta,
+        descripcion: permiso.nombre,
+        icono: this.obtenerIconoMenu(permiso.menu)
+      });
+    }
+    this.grupos = Object.values(gruposMap);
+  }
+
+  obtenerIconoMenu(menu: string): 'users' | 'chart' | 'settings' {
+    if (menu.toLowerCase().includes('usuario')) return 'users';
+    if (menu.toLowerCase().includes('estad')) return 'chart';
+    if (menu.toLowerCase().includes('config')) return 'settings';
+    return 'settings';
   }
 
   ngOnInit() {
@@ -118,7 +135,7 @@ export class SidebarComponent implements OnInit, OnDestroy {
   }
 
   get accesosTotales() {
-    return this.grupos.length + 1;
+    return this.grupos.length + (this.inicio ? 1 : 0);
   }
 
   get grupoActivo() {
@@ -132,7 +149,7 @@ export class SidebarComponent implements OnInit, OnDestroy {
   private actualizarMenuActivo(url: string) {
     this.urlActual = url;
 
-    if (url === this.inicio.ruta || url.startsWith(`${this.inicio.ruta}/`)) {
+    if (this.inicio && this.inicio.ruta && (url === this.inicio.ruta || url.startsWith(`${this.inicio.ruta}/`))) {
       this.menuAbierto = '';
       return;
     }

@@ -1,7 +1,6 @@
 import { Routes } from '@angular/router';
 import { AuthGuard } from './guards/auth-guard';
 
-
 export const routes: Routes = [
   { path: '', pathMatch: 'full', redirectTo: 'login' },
   {
@@ -18,7 +17,19 @@ export const routes: Routes = [
     path: 'usuarios',
     loadComponent: () => import('./pages/usuarios/usuarios/usuarios').then((m) => m.UsuariosComponent),
     canActivate: [AuthGuard],
-    data: { nombre: 'Usuarios', descripcion: 'Gestión de usuarios' }
+    data: { nombre: 'Usuarios', descripcion: 'Gestion de usuarios' }
+  },
+  {
+    path: 'usuarios/nuevos',
+    loadComponent: () => import('./pages/usuarios/usuarios/usuarios').then((m) => m.UsuariosComponent),
+    canActivate: [AuthGuard],
+    data: { nombre: 'Usuarios Ingreso', descripcion: 'Creacion de usuarios' }
+  },
+  {
+    path: 'usuarios/listado',
+    loadComponent: () => import('./pages/usuarios/usuarios/usuarios').then((m) => m.UsuariosComponent),
+    canActivate: [AuthGuard],
+    data: { nombre: 'Usuarios Listados', descripcion: 'Listado de usuarios' }
   },
   {
     path: 'estadisticas',

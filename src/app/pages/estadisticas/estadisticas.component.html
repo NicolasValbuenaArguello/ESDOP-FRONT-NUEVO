@@ -1,3 +1,45 @@
+<!-- Modal de convenciones -->
+<div class="popup-modal-backdrop" *ngIf="mostrarConvencionesModal" (click)="mostrarConvencionesModal = false">
+  <div #convencionesModalRef class="popup-modal convenciones-modal" (click)="$event.stopPropagation()">
+    <div class="popup-modal-head convenciones-modal-head">
+      <div>
+        <span class="card-kicker">Mapa</span>
+        <h2>Convenciones</h2>
+      </div>
+      <button class="popup-close" type="button" aria-label="Cerrar convenciones"
+        (click)="mostrarConvencionesModal = false">&times;</button>
+    </div>
+
+    <div class="convenciones-modal-summary">
+      <span class="convenciones-summary-label">Tipo de mapa</span>
+      <strong>{{ tipoMapaActivo | titlecase }}</strong>
+    </div>
+
+    <div class="convenciones-list" *ngIf="mapLegendItems.length; else convencionesVacias">
+      <div class="convenciones-item" *ngFor="let item of mapLegendItems">
+        <span class="convencion-swatch" [class.convencion-swatch-line]="item.kind === 'line'"
+          [style.--convencion-color]="item.color"></span>
+        <span class="convencion-label">{{ item.label }}</span>
+      </div>
+    </div>
+
+    <ng-template #convencionesVacias>
+      <div class="convenciones-empty">
+        No hay convenciones disponibles para la vista actual.
+      </div>
+    </ng-template>
+
+    <div class="coordinate-modal-actions convenciones-modal-actions">
+      <button type="button" class="popup-download" (click)="descargarConvencionesComoImagen()">
+        Descargar convenciones
+      </button>
+      <button type="button" class="map-modal-close" (click)="mostrarConvencionesModal = false">
+        Cerrar
+      </button>
+    </div>
+  </div>
+</div>
+<!-- El bloque de estilos debe ir fuera del HTML, en el archivo .css o al final del template, nunca dentro de una etiqueta o lista -->
 <div class="stats-layout" [class.sidebar-hidden]="!sidebarVisible">
   <app-sidebar *ngIf="sidebarVisible" (ocultar)="toggleSidebar()"></app-sidebar>
 
@@ -8,51 +50,287 @@
       </button>
 
       <div class="stats-topbar-actions">
-        <button class="filtro-btn filtro-btn-top" (click)="mostrarFiltrosModal = true">
+        <button *ngIf="puedeVerEstadisticasCrud" class="filtro-btn filtro-btn-top" (click)="mostrarFiltrosModal = true">
           <span>Filtrar</span>
           <svg width="18" height="18" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <path d="M3 5h14M6 10h8M9 15h2" stroke="#7d0012" stroke-width="2" stroke-linecap="round"/>
+            <path d="M3 5h14M6 10h8M9 15h2" stroke="#7d0012" stroke-width="2" stroke-linecap="round" />
           </svg>
         </button>
       </div>
     </header>
 
     <section class="stats-board" [class.stats-board-map-focus]="isMapFullscreen">
-      <aside class="stats-side">
-        <div class="stats-categorias">
-          <div class="categoria-tabs">
-            <button *ngFor="let cat of categorias"
-                    class="categoria-tab"
-                    [class.categoria-tab-activa]="cat === categoriaSeleccionada"
-                    (click)="setCategoria(cat)">
+      <section #mapPanel class="map-panel" [class.map-panel-fullscreen]="isMapFullscreen">
+        <div class="map-workspace">
+          <aside class="stats-side stats-side-menu">
+            <div class="stats-categorias">
+              <div class="stats-side-head">
+                <span class="card-kicker">Resumen</span>
+                <h2>{{ categoriaSeleccionada || 'Categorias' }}</h2>
+              </div>
+
+              <div class="categoria-tabs" *ngIf="categorias.length; else categoriasVaciasPanel">
+                <button *ngFor="let cat of categorias" class="categoria-tab"
+                  [class.categoria-tab-activa]="cat === categoriaSeleccionada" [disabled]="!puedeVerEstadisticasCrud"
+                  (click)="setCategoria(cat)">
+                  {{ cat }}
+                </button>
+              </div>
+              <ng-template #categoriasVaciasPanel>
+                <div class="categoria-tabs categoria-tabs-empty" aria-hidden="true"></div>
+              </ng-template>
+            </div>
+          </aside>
+
+          <div class="map-stage">
+            <div class="map-toolbar">
+              <div class="map-toolbar-group">
+                <span class="map-chip">Mapa digital</span>
+                <span class="map-chip soft">Capas: calles, topografico, claro y satelital</span>
+                <span class="map-chip soft">{{ cursorCoordinates }}</span>
+                <span class="map-chip soft" [class.map-chip-alert]="measureModeEnabled">{{ measurementSummary }}</span>
+              </div>
+              <div class="map-toolbar-group map-toolbar-actions">
+                <button *ngIf="puedeCrearEstadisticasCrud" type="button" class="map-action-button"
+                  [class.map-action-button-active]="textModeEnabled" (click)="toggleTextMode()">
+                  {{ textModeEnabled ? 'Cancelar texto' : 'Crear texto' }}
+                </button>
+                <button *ngIf="puedeCrearEstadisticasCrud" type="button" class="map-action-button"
+                  [class.map-action-button-active]="measureModeEnabled" (click)="toggleMeasureMode()">
+                  {{ measureModeEnabled ? 'Salir de medir' : 'Medir distancia' }}
+                </button>
+                <button *ngIf="puedeEliminarEstadisticasCrud" type="button" class="map-action-button"
+                  (click)="clearMeasurement()">Limpiar medida</button>
+                <button *ngIf="puedeCrearEstadisticasCrud" type="button" class="map-action-button"
+                  (click)="abrirCoordenadasModal()">Punto por coordenadas</button>
+                <button *ngIf="puedeVerEstadisticasCrud" type="button" class="map-action-button"
+                  (click)="exportDrawnData()">Descargar KML completo</button>
+                <button *ngIf="puedeVerEstadisticasCrud" type="button" class="map-action-button"
+                  (click)="descargarMapaComoImagen()">
+                  {{ exportingMapImage ? 'Generando imagen...' : 'Descargar imagen del mapa' }}
+                </button>
+                <button type="button" class="map-action-button" (click)="toggleFullscreen()">
+                  {{ isMapFullscreen ? 'Salir de pantalla completa' : 'Pantalla completa' }}
+                </button>
+                <button *ngIf="puedeVerEstadisticasCrud" class="popup-btn" (click)="mostrarGraficasModal = true">Ver
+                  gr&aacute;ficas</button>
+                <button *ngIf="puedeVerEstadisticasCrud" class="popup-btn" (click)="mostrarTablaModal = true">Ver
+                  tabla</button>
+                <button *ngIf="puedeVerEstadisticasCrud" class="popup-btn" (click)="mostrarResumenModal = true">Ver
+                  resumen</button>
+                <!-- Botón para abrir la ventana de convenciones -->
+                <button *ngIf="puedeVerEstadisticasCrud" class="map-action-button"
+                  (click)="mostrarConvencionesModal = true">Ver Convenciones</button>
+              </div>
+            </div>
+
+            <div #mapCaptureSurface class="map-capture-surface"
+              [class.map-capture-surface-exporting]="exportingMapImage">
+              <div #leafletMap class="digital-map" [class.text-mode-active]="textModeEnabled"
+                [class.measure-mode-active]="measureModeEnabled" aria-label="Mapa digital operativo"></div>
+
+              <aside class="map-export-legend" *ngIf="exportingMapImage && mapLegendItems.length">
+                <span class="map-export-legend-title">Convenciones</span>
+                <div class="map-export-legend-list">
+                  <div class="map-export-legend-item" *ngFor="let item of mapLegendItems">
+                    <span class="map-export-legend-swatch" [class.map-export-legend-swatch-line]="item.kind === 'line'"
+                      [style.--legend-color]="item.color"></span>
+                    <span>{{ item.label }}</span>
+                  </div>
+                </div>
+              </aside>
+            </div>
+          </div>
+        </div>
+
+        <div class="popup-modal-backdrop" *ngIf="isMapFullscreen && mostrarResumenModal"
+          (click)="mostrarResumenModal = false">
+          <div class="popup-modal popup-modal-wide popup-modal-resumen" (click)="$event.stopPropagation()">
+            <div class="popup-modal-head">
+              <div>
+                <span class="card-kicker">Resumen</span>
+                <h2>{{ categoriaSeleccionada || 'Resumen por categoria' }}</h2>
+              </div>
+              <button class="popup-close" type="button" aria-label="Cerrar resumen"
+                (click)="mostrarResumenModal = false">&times;</button>
+            </div>
+
+            <div class="stats-categorias stats-categorias-modal">
+              <div class="categoria-tabs categoria-tabs-inline" *ngIf="categorias.length; else categoriasVaciasModalFs">
+                <button *ngFor="let cat of categorias" class="categoria-tab"
+                  [class.categoria-tab-activa]="cat === categoriaSeleccionada" [disabled]="!puedeVerEstadisticasCrud"
+                  (click)="setCategoria(cat)">
+                  {{ cat }}
+                </button>
+              </div>
+              <ng-template #categoriasVaciasModalFs>
+                <div class="categoria-tabs categoria-tabs-inline categoria-tabs-empty" aria-hidden="true"></div>
+              </ng-template>
+
+              <div class="categoria-tarjetas categoria-tarjetas-inline categoria-tarjetas-modal">
+                <article class="stats-card stats-card-highlight stats-card-inline stats-card-inline-wide">
+                  <span class="card-kicker">Total</span>
+                  <strong>
+                    {{ getTiposActivos().reduce((acc, t) => acc + t.total, 0) }}
+                  </strong>
+                  <p>{{ categoriaSeleccionada || 'Categoria' }}</p>
+                  <small>Eventos totales</small>
+                </article>
+
+                <article class="stats-card stats-card-inline" [class.stats-card-activa]="isShowingAllTypes()"
+                  (click)="setTipo(allTypesToken); mostrarResumenModal = false">
+                  <span class="card-kicker">Vista</span>
+                  <strong>{{ getTiposActivos().length }}</strong>
+                  <p>Todos los tipos</p>
+                  <small>Mostrar toda la informaci&oacute;n en el mapa</small>
+                </article>
+
+                <ng-container *ngFor="let tipo of getTiposActivos()">
+                  <article class="stats-card stats-card-inline"
+                    [class.stats-card-activa]="tipo.key === tipoSeleccionado"
+                    (click)="setTipo(tipo.key); mostrarResumenModal = false"
+                    [style.borderLeft]="'6px solid ' + getColorTipo(tipo.key)">
+                    <span class="card-kicker">Tipo</span>
+                    <strong>{{ tipo.total }}</strong>
+                    <p>{{ tipo.tipo }}</p>
+                    <small>Click para ver en mapa</small>
+                  </article>
+                </ng-container>
+              </div>
+
+              <div class="stats-categorias-actions">
+                <button *ngIf="puedeVerEstadisticasCrud" class="popup-btn" (click)="mostrarPivotModal = true">Ver tabla
+                  pivote</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="popup-modal-backdrop" *ngIf="isMapFullscreen && mostrarGraficasModal"
+          (click)="mostrarGraficasModal = false">
+          <div id="graficas-modal-content-fs" class="popup-modal graficas-modal" (click)="$event.stopPropagation()">
+            <div class="popup-modal-head">
+              <span class="card-kicker">Gr&aacute;ficas</span>
+              <h2>{{ categoriaSeleccionada || 'Comparativo territorial' }}</h2>
+              <button class="popup-close" type="button" aria-label="Cerrar gráficas"
+                (click)="mostrarGraficasModal = false">&times;</button>
+            </div>
+
+            <div class="chart-bars">
+              <div class="chart-row" *ngFor="let item of barrasCategoria">
+                <span class="chart-label tooltip-parent" (mousemove)="setTooltipPosition($event)"
+                  (mouseleave)="clearTooltipPosition()">
+                  {{ item.label }}
+                  <span class="custom-tooltip">{{ item.label }}</span>
+                </span>
+
+                <div class="chart-track">
+                  <div class="chart-fill" [style.width.%]="item.value" [style.background]="item.color">
+                  </div>
+                </div>
+
+                <span class="chart-value">{{ item.value }}%</span>
+              </div>
+            </div>
+
+            <button *ngIf="puedeVerEstadisticasCrud" class="popup-download" (click)="descargarGraficasComoImagen()">
+              Descargar gr&aacute;ficas
+            </button>
+          </div>
+        </div>
+
+        <div class="popup-modal-backdrop" *ngIf="isMapFullscreen && mostrarTablaModal"
+          (click)="mostrarTablaModal = false">
+          <div class="popup-modal" (click)="$event.stopPropagation()">
+            <div class="popup-modal-head">
+              <span class="card-kicker">Tabla</span>
+              <h2>Tabla pivote por divisi&oacute;n</h2>
+              <button class="popup-close" type="button" aria-label="Cerrar tabla"
+                (click)="mostrarTablaModal = false">&times;</button>
+            </div>
+
+            <div class="mini-table-block">
+              <table class="mini-table">
+                <thead>
+                  <tr>
+                    <th>TIPO</th>
+                    <th *ngFor="let division of getPivotTableData().divisiones">{{ division }}</th>
+                    <th>TOTAL</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr *ngFor="let row of getPivotTableData().rows">
+                    <td>{{ row.tipo }}</td>
+                    <td *ngFor="let division of getPivotTableData().divisiones">
+                      {{ row.valores[division] || '' }}
+                    </td>
+                    <td>{{ row.total }}</td>
+                  </tr>
+                  <tr class="mini-table-total" *ngIf="getPivotTableData().rows.length">
+                    <td>TOTAL</td>
+                    <td *ngFor="let division of getPivotTableData().divisiones">
+                      {{ getPivotTableData().totalGeneral[division] || '' }}
+                    </td>
+                    <td>{{ getPivotTableData().totalGlobal }}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            <button *ngIf="puedeVerEstadisticasCrud" class="popup-download" (click)="descargarTablaComoCSV()">
+              Descargar tabla
+            </button>
+          </div>
+        </div>
+      </section>
+    </section>
+
+    <div class="popup-modal-backdrop" *ngIf="!isMapFullscreen && mostrarResumenModal"
+      (click)="mostrarResumenModal = false">
+      <div class="popup-modal popup-modal-wide popup-modal-resumen" (click)="$event.stopPropagation()">
+        <div class="popup-modal-head">
+          <div>
+            <span class="card-kicker">Resumen</span>
+            <h2>{{ categoriaSeleccionada || 'Resumen por categoria' }}</h2>
+          </div>
+          <button class="popup-close" type="button" aria-label="Cerrar resumen"
+            (click)="mostrarResumenModal = false">&times;</button>
+        </div>
+
+        <div class="stats-categorias stats-categorias-modal">
+          <div class="categoria-tabs categoria-tabs-inline" *ngIf="categorias.length; else categoriasVaciasModal">
+            <button *ngFor="let cat of categorias" class="categoria-tab"
+              [class.categoria-tab-activa]="cat === categoriaSeleccionada" [disabled]="!puedeVerEstadisticasCrud"
+              (click)="setCategoria(cat)">
               {{ cat }}
             </button>
           </div>
+          <ng-template #categoriasVaciasModal>
+            <div class="categoria-tabs categoria-tabs-inline categoria-tabs-empty" aria-hidden="true"></div>
+          </ng-template>
 
-          <div class="categoria-tarjetas categoria-tarjetas-scroll">
-            <article class="stats-card stats-card-highlight" *ngIf="categoriaSeleccionada">
+          <div class="categoria-tarjetas categoria-tarjetas-inline categoria-tarjetas-modal">
+            <article class="stats-card stats-card-highlight stats-card-inline stats-card-inline-wide">
               <span class="card-kicker">Total</span>
               <strong>
                 {{ getTiposActivos().reduce((acc, t) => acc + t.total, 0) }}
               </strong>
-              <p>{{ categoriaSeleccionada }}</p>
+              <p>{{ categoriaSeleccionada || 'Categoria' }}</p>
               <small>Eventos totales</small>
             </article>
 
-            <article class="stats-card"
-                     [class.stats-card-activa]="isShowingAllTypes()"
-                     (click)="setTipo(allTypesToken)">
+            <article class="stats-card stats-card-inline" [class.stats-card-activa]="isShowingAllTypes()"
+              (click)="setTipo(allTypesToken)" (click)="mostrarResumenModal = false">
               <span class="card-kicker">Vista</span>
               <strong>{{ getTiposActivos().length }}</strong>
               <p>Todos los tipos</p>
-              <small>Mostrar toda la información en el mapa</small>
+              <small>Mostrar toda la informaci&oacute;n en el mapa</small>
             </article>
 
             <ng-container *ngFor="let tipo of getTiposActivos()">
-              <article class="stats-card"
-                       [class.stats-card-activa]="tipo.tipo === tipoSeleccionado"
-                       (click)="setTipo(tipo.tipo)"
-                       [style.borderLeft]="'6px solid ' + getColorTipo(tipo.tipo)">
+              <article class="stats-card stats-card-inline" [class.stats-card-activa]="tipo.key === tipoSeleccionado"
+                (click)="setTipo(tipo.key)" [style.borderLeft]="'6px solid ' + getColorTipo(tipo.key)"
+                (click)="mostrarResumenModal = false">
                 <span class="card-kicker">Tipo</span>
                 <strong>{{ tipo.total }}</strong>
                 <p>{{ tipo.tipo }}</p>
@@ -61,60 +339,34 @@
             </ng-container>
           </div>
 
-          <button class="popup-btn" *ngIf="categoriaSeleccionada" (click)="mostrarPivotModal = true">Ver tabla pivote</button>
-        </div>
-      </aside>
-
-      <section #mapPanel class="map-panel" [class.map-panel-fullscreen]="isMapFullscreen">
-        <div class="map-toolbar">
-          <div class="map-toolbar-group">
-            <span class="map-chip">Mapa digital</span>
-            <span class="map-chip soft">Capas: calles, topografico, claro y satelital</span>
-            <span class="map-chip soft">{{ cursorCoordinates }}</span>
-            <span class="map-chip soft" [class.map-chip-alert]="measureModeEnabled">{{ measurementSummary }}</span>
-          </div>
-          <div class="map-toolbar-group map-toolbar-actions">
-            <button type="button" class="map-action-button" [class.map-action-button-active]="textModeEnabled" (click)="toggleTextMode()">
-              {{ textModeEnabled ? 'Cancelar texto' : 'Crear texto' }}
-            </button>
-            <button type="button" class="map-action-button" [class.map-action-button-active]="measureModeEnabled" (click)="toggleMeasureMode()">
-              {{ measureModeEnabled ? 'Salir de medir' : 'Medir distancia' }}
-            </button>
-            <button type="button" class="map-action-button" (click)="clearMeasurement()">Limpiar medida</button>
-            <button type="button" class="map-action-button" (click)="abrirCoordenadasModal()">Punto por coordenadas</button>
-            <button type="button" class="map-action-button" (click)="exportDrawnData()">Descargar KML completo</button>
-            <button type="button" class="map-action-button" (click)="toggleFullscreen()">
-              {{ isMapFullscreen ? 'Salir de pantalla completa' : 'Pantalla completa' }}
-            </button>
-            <button class="popup-btn" (click)="mostrarGraficasModal = true">Ver gráficas</button>
-            <button class="popup-btn" (click)="mostrarTablaModal = true" *ngIf="categoriaSeleccionada">Ver tabla</button>
+          <div class="stats-categorias-actions">
+            <button *ngIf="puedeVerEstadisticasCrud" class="popup-btn" (click)="mostrarPivotModal = true">Ver tabla
+              pivote</button>
           </div>
         </div>
-        <div #leafletMap class="digital-map" [class.text-mode-active]="textModeEnabled" [class.measure-mode-active]="measureModeEnabled" aria-label="Mapa digital operativo"></div>
-      </section>
-    </section>
+      </div>
+    </div>
 
-    <div class="popup-modal-backdrop" *ngIf="mostrarGraficasModal" (click)="mostrarGraficasModal = false">
+    <div class="popup-modal-backdrop" *ngIf="!isMapFullscreen && mostrarGraficasModal"
+      (click)="mostrarGraficasModal = false">
       <div id="graficas-modal-content" class="popup-modal graficas-modal" (click)="$event.stopPropagation()">
         <div class="popup-modal-head">
-          <span class="card-kicker">Gráficas</span>
+          <span class="card-kicker">Gr&aacute;ficas</span>
           <h2>{{ categoriaSeleccionada || 'Comparativo territorial' }}</h2>
-          <button class="popup-close" (click)="mostrarGraficasModal = false">×</button>
+          <button class="popup-close" type="button" aria-label="Cerrar gráficas"
+            (click)="mostrarGraficasModal = false">&times;</button>
         </div>
 
         <div class="chart-bars">
           <div class="chart-row" *ngFor="let item of barrasCategoria">
-            <span class="chart-label tooltip-parent"
-                  (mousemove)="setTooltipPosition($event)"
-                  (mouseleave)="clearTooltipPosition()">
+            <span class="chart-label tooltip-parent" (mousemove)="setTooltipPosition($event)"
+              (mouseleave)="clearTooltipPosition()">
               {{ item.label }}
               <span class="custom-tooltip">{{ item.label }}</span>
             </span>
 
             <div class="chart-track">
-              <div class="chart-fill"
-                   [style.width.%]="item.value"
-                   [style.background]="item.color">
+              <div class="chart-fill" [style.width.%]="item.value" [style.background]="item.color">
               </div>
             </div>
 
@@ -122,18 +374,19 @@
           </div>
         </div>
 
-        <button class="popup-download" (click)="descargarGraficasComoImagen()">
-          Descargar gráficas
+        <button *ngIf="puedeVerEstadisticasCrud" class="popup-download" (click)="descargarGraficasComoImagen()">
+          Descargar gr&aacute;ficas
         </button>
       </div>
     </div>
 
-    <div class="popup-modal-backdrop" *ngIf="mostrarTablaModal" (click)="mostrarTablaModal = false">
+    <div class="popup-modal-backdrop" *ngIf="!isMapFullscreen && mostrarTablaModal" (click)="mostrarTablaModal = false">
       <div class="popup-modal" (click)="$event.stopPropagation()">
         <div class="popup-modal-head">
           <span class="card-kicker">Tabla</span>
-          <h2>Tabla pivote por división</h2>
-          <button class="popup-close" (click)="mostrarTablaModal = false">×</button>
+          <h2>Tabla pivote por divisi&oacute;n</h2>
+          <button class="popup-close" type="button" aria-label="Cerrar tabla"
+            (click)="mostrarTablaModal = false">&times;</button>
         </div>
 
         <div class="mini-table-block">
@@ -164,7 +417,7 @@
           </table>
         </div>
 
-        <button class="popup-download" (click)="descargarTablaComoCSV()">
+        <button *ngIf="puedeVerEstadisticasCrud" class="popup-download" (click)="descargarTablaComoCSV()">
           Descargar tabla
         </button>
       </div>
@@ -172,31 +425,28 @@
   </main>
 </div>
 
-<div class="map-modal-backdrop" *ngIf="mostrarCoordenadasModal" (click)="cerrarCoordenadasModal()">
+<div class="map-modal-backdrop" *ngIf="mostrarCoordenadasModal && puedeCrearEstadisticasCrud"
+  (click)="cerrarCoordenadasModal()">
   <section class="map-modal" (click)="$event.stopPropagation()">
     <div class="map-modal-head">
       <div class="map-modal-title-block">
         <span class="card-kicker">Coordenadas</span>
         <h2>Graficar punto manual</h2>
-        <p class="map-modal-text">Selecciona el sistema de coordenadas y completa los datos. El punto se agregara al mapa y quedara listo para exportacion.</p>
+        <p class="map-modal-text">Selecciona el sistema de coordenadas y completa los datos. El punto se agregara al
+          mapa y quedara listo para exportacion.</p>
       </div>
 
       <button type="button" class="map-modal-close" (click)="cerrarCoordenadasModal()">Cerrar</button>
     </div>
 
     <div class="coordinate-system-switch">
-      <button
-        type="button"
-        class="coordinate-system-button"
+      <button type="button" class="coordinate-system-button"
         [class.coordinate-system-button-active]="coordinateSystem === 'decimal'"
         (click)="cambiarSistemaCoordenadas('decimal')">
         Decimal
       </button>
-      <button
-        type="button"
-        class="coordinate-system-button"
-        [class.coordinate-system-button-active]="coordinateSystem === 'dms'"
-        (click)="cambiarSistemaCoordenadas('dms')">
+      <button type="button" class="coordinate-system-button"
+        [class.coordinate-system-button-active]="coordinateSystem === 'dms'" (click)="cambiarSistemaCoordenadas('dms')">
         Grados Minutos Segundos
       </button>
     </div>
@@ -205,8 +455,8 @@
       <strong>{{ coordinateSystem === 'decimal' ? 'Entrada decimal' : 'Entrada GMS' }}</strong>
       <span>
         {{ coordinateSystem === 'decimal'
-          ? 'Usa latitud y longitud en grados decimales, por ejemplo 4.7110 y -74.0721.'
-          : 'Ingresa grados, minutos, segundos y hemisferio para convertir automaticamente al punto en el mapa.' }}
+        ? 'Usa latitud y longitud en grados decimales, por ejemplo 4.7110 y -74.0721.'
+        : 'Ingresa grados, minutos, segundos y hemisferio para convertir automaticamente al punto en el mapa.' }}
       </span>
     </div>
 
@@ -237,15 +487,18 @@
           <div class="dms-grid">
             <label class="coordinate-input-card">
               <span>Grados</span>
-              <input type="number" step="1" name="latDegrees" [(ngModel)]="coordinateDmsForm.latDegrees" placeholder="4">
+              <input type="number" step="1" name="latDegrees" [(ngModel)]="coordinateDmsForm.latDegrees"
+                placeholder="4">
             </label>
             <label class="coordinate-input-card">
               <span>Minutos</span>
-              <input type="number" step="1" name="latMinutes" [(ngModel)]="coordinateDmsForm.latMinutes" placeholder="42">
+              <input type="number" step="1" name="latMinutes" [(ngModel)]="coordinateDmsForm.latMinutes"
+                placeholder="42">
             </label>
             <label class="coordinate-input-card">
               <span>Segundos</span>
-              <input type="number" step="any" name="latSeconds" [(ngModel)]="coordinateDmsForm.latSeconds" placeholder="39.6">
+              <input type="number" step="any" name="latSeconds" [(ngModel)]="coordinateDmsForm.latSeconds"
+                placeholder="39.6">
             </label>
             <label class="coordinate-input-card coordinate-input-select">
               <span>Hemisferio</span>
@@ -265,15 +518,18 @@
           <div class="dms-grid">
             <label class="coordinate-input-card">
               <span>Grados</span>
-              <input type="number" step="1" name="lngDegrees" [(ngModel)]="coordinateDmsForm.lngDegrees" placeholder="74">
+              <input type="number" step="1" name="lngDegrees" [(ngModel)]="coordinateDmsForm.lngDegrees"
+                placeholder="74">
             </label>
             <label class="coordinate-input-card">
               <span>Minutos</span>
-              <input type="number" step="1" name="lngMinutes" [(ngModel)]="coordinateDmsForm.lngMinutes" placeholder="4">
+              <input type="number" step="1" name="lngMinutes" [(ngModel)]="coordinateDmsForm.lngMinutes"
+                placeholder="4">
             </label>
             <label class="coordinate-input-card">
               <span>Segundos</span>
-              <input type="number" step="any" name="lngSeconds" [(ngModel)]="coordinateDmsForm.lngSeconds" placeholder="19.56">
+              <input type="number" step="any" name="lngSeconds" [(ngModel)]="coordinateDmsForm.lngSeconds"
+                placeholder="19.56">
             </label>
             <label class="coordinate-input-card coordinate-input-select">
               <span>Hemisferio</span>
@@ -295,19 +551,24 @@
 
       <div class="coordinate-modal-actions">
         <button type="button" class="map-action-button" (click)="cerrarCoordenadasModal()">Cancelar</button>
-        <button type="submit" class="map-action-button map-action-button-active">Graficar punto</button>
+        <button *ngIf="puedeCrearEstadisticasCrud" type="submit"
+          class="map-action-button map-action-button-active">Graficar punto</button>
       </div>
     </form>
   </section>
 </div>
 
-<div class="map-modal-backdrop" *ngIf="mostrarFiltrosModal" (click)="cerrarFiltrosModal()">
+<div class="map-modal-backdrop" *ngIf="mostrarFiltrosModal && puedeEditarEstadisticasCrud"
+  (click)="cerrarFiltrosModal()">
+
+
   <section class="map-modal filter-modal" (click)="$event.stopPropagation()">
     <div class="map-modal-head">
       <div class="map-modal-title-block">
         <span class="card-kicker">Filtros</span>
         <h2>Filtros de Resultados</h2>
-        <p class="map-modal-text">Configura el rango de fechas, los sub filtros operativos y la informacion documental que deseas consultar.</p>
+        <p class="map-modal-text">Configura el rango de fechas, los sub filtros operativos y la informacion documental
+          que deseas consultar.</p>
       </div>
 
       <button type="button" class="map-modal-close" (click)="cerrarFiltrosModal()">Cerrar</button>
@@ -321,29 +582,156 @@
         </div>
 
         <div class="filter-date-grid">
-          <div class="filter-date-group">
-            <strong>Lapso inicial</strong>
-            <label class="coordinate-input-card filter-date-card">
-              <span>Fecha inicial</span>
-              <input type="date" name="lapsoInicialA" [(ngModel)]="filtrosForm.lapsoInicialA">
-            </label>
-            <label class="coordinate-input-card filter-date-card">
-              <span>Fecha final</span>
-              <input type="date" name="lapsoInicialB" [(ngModel)]="filtrosForm.lapsoInicialB">
-            </label>
+          <div class="filter-date-group improved-date-group">
+            <div class="date-group-header">
+              <span class="date-group-icon">&#128197;</span>
+              <strong>Lapso inicial</strong>
+            </div>
+            <div class="date-inputs-row">
+              <label class="coordinate-input-card filter-date-card improved-date-label">
+                <span>Fecha inicial</span>
+                <input type="date" name="lapsoInicialA" [(ngModel)]="filtrosForm.lapsoInicialA"
+                  [class.input-error]="!filtrosForm.lapsoInicialA && dashboardErrorMsg">
+                <div *ngIf="!filtrosForm.lapsoInicialA && dashboardErrorMsg" class="error-msg">Requerido</div>
+              </label>
+              <label class="coordinate-input-card filter-date-card improved-date-label">
+                <span>Fecha final</span>
+                <input type="date" name="lapsoInicialB" [(ngModel)]="filtrosForm.lapsoInicialB"
+                  [class.input-error]="!filtrosForm.lapsoInicialB && dashboardErrorMsg">
+                <div *ngIf="!filtrosForm.lapsoInicialB && dashboardErrorMsg" class="error-msg">Requerido</div>
+              </label>
+            </div>
           </div>
+          <div class="filter-date-group improved-date-group">
+            <div class="date-group-header">
+              <span class="date-group-icon">&#128198;</span>
+              <strong>Lapso final</strong>
+            </div>
+            <div class="date-inputs-row">
+              <label class="coordinate-input-card filter-date-card improved-date-label">
+                <span>Fecha inicial</span>
+                <input type="date" name="lapsoFinalA" [(ngModel)]="filtrosForm.lapsoFinalA">
+              </label>
+              <label class="coordinate-input-card filter-date-card improved-date-label">
+                <span>Fecha final</span>
+                <input type="date" name="lapsoFinalB" [(ngModel)]="filtrosForm.lapsoFinalB">
+              </label>
+            </div>
+          </div>
+          <style>
+            .filter-date-grid {
+              display: flex;
+              gap: 32px;
+              margin-bottom: 12px;
+              flex-wrap: wrap;
+            }
 
-          <div class="filter-date-group">
-            <strong>Lapso final</strong>
-            <label class="coordinate-input-card filter-date-card">
-              <span>Fecha inicial</span>
-              <input type="date" name="lapsoFinalA" [(ngModel)]="filtrosForm.lapsoFinalA">
-            </label>
-            <label class="coordinate-input-card filter-date-card">
-              <span>Fecha final</span>
-              <input type="date" name="lapsoFinalB" [(ngModel)]="filtrosForm.lapsoFinalB">
-            </label>
-          </div>
+            .improved-date-group {
+              background: #fafbfc;
+              border-radius: 10px;
+              box-shadow: 0 2px 8px #0001;
+              padding: 18px 20px 12px 20px;
+              min-width: 260px;
+              flex: 1 1 320px;
+              margin-bottom: 0;
+            }
+
+            .date-group-header {
+              display: flex;
+              align-items: center;
+              gap: 8px;
+              margin-bottom: 10px;
+            }
+
+            .date-group-icon {
+              font-size: 1.3em;
+              color: #7d0012;
+            }
+
+            .date-inputs-row {
+              display: flex;
+              gap: 18px;
+              flex-wrap: wrap;
+            }
+
+            .improved-date-label {
+              flex: 1 1 140px;
+              min-width: 120px;
+            }
+
+            .improved-date-label span {
+              font-weight: 500;
+              color: #7d0012;
+              margin-bottom: 4px;
+            }
+
+            .improved-date-label input[type="date"] {
+              width: 100%;
+              padding: 6px 36px 6px 10px;
+              /* Más espacio a la derecha para el icono */
+              border-radius: 6px;
+              border: 1px solid #ccc;
+              font-size: 1em;
+              transition: border 0.2s;
+              background-color: #fff;
+              box-sizing: border-box;
+              position: relative;
+            }
+
+            /* Para navegadores Webkit (Chrome, Edge, Safari) */
+            .improved-date-label input[type="date"]::-webkit-calendar-picker-indicator {
+              filter: invert(24%) sepia(97%) saturate(7472%) hue-rotate(334deg) brightness(90%) contrast(110%);
+              opacity: 1;
+              right: 8px;
+              position: absolute;
+              cursor: pointer;
+              height: 22px;
+              width: 22px;
+            }
+
+            /* Para Firefox */
+            .improved-date-label input[type="date"]::-moz-calendar-picker-indicator {
+              filter: invert(24%) sepia(97%) saturate(7472%) hue-rotate(334deg) brightness(90%) contrast(110%);
+              opacity: 1;
+              right: 8px;
+              position: absolute;
+              cursor: pointer;
+              height: 22px;
+              width: 22px;
+            }
+
+            /* Para que el icono no se corte en ningún navegador */
+            .improved-date-label input[type="date"]::-ms-input-placeholder {
+              padding-right: 36px;
+            }
+
+            .improved-date-label input[type="date"].input-error {
+              border: 1.5px solid #d32f2f;
+              background: #fff6f6;
+            }
+
+            .improved-date-label .error-msg {
+              color: #d32f2f;
+              font-size: 0.92em;
+              margin-top: 2px;
+            }
+
+            @media (max-width: 700px) {
+              .filter-date-grid {
+                flex-direction: column;
+                gap: 18px;
+              }
+
+              .improved-date-group {
+                min-width: 0;
+                padding: 14px 8px 8px 8px;
+              }
+
+              .date-inputs-row {
+                gap: 10px;
+              }
+            }
+          </style>
         </div>
       </section>
 
@@ -352,6 +740,36 @@
           <span class="dms-group-title">Sub filtros</span>
           <small>Segmentacion operativa</small>
         </div>
+        <div class="document-download-card subfilters-status-card"
+          [class.subfilters-status-card-active]="tieneSubFiltrosActivos()">
+          <div>
+            <strong>Documento</strong>
+            <p>
+              {{ tieneSubFiltrosActivos()
+              ? 'Ya hay sub filtros aplicados sobre la consulta actual.'
+              : 'Aplica los sub filtros, con el fin de obtener los resultados deseados.' }}
+            </p>
+            <div class="subfilters-inline-status" *ngIf="tieneSubFiltrosActivos()">
+              <span class="subfilters-inline-badge">Filtros activos</span>
+              <span class="subfilters-inline-count">{{ getResumenSubFiltrosAplicados().length }} seleccion(es)</span>
+            </div>
+            <div class="subfilters-inline-chips" *ngIf="tieneSubFiltrosActivos()">
+              <span class="subfilters-inline-chip" *ngFor="let item of getResumenSubFiltrosAplicados()">{{ item
+                }}</span>
+            </div>
+          </div>
+
+          <div class="subfilters-card-actions">
+            <button *ngIf="tieneSubFiltrosActivos()" type="button"
+              class="document-download-button subfilters-clear-button" (click)="limpiarSubFiltros()">
+              Limpiar filtros
+            </button>
+            <button type="button" class="document-download-button" (click)="abrirSubFiltrosModal()">
+              {{ tieneSubFiltrosActivos() ? 'Editar sub filtros' : 'Aplicar sub filtros' }}
+            </button>
+          </div>
+        </div>
+
       </section>
 
       <section class="filter-block">
@@ -374,8 +792,417 @@
 
       <div class="coordinate-modal-actions">
         <button type="button" class="map-action-button" (click)="cerrarFiltrosModal()">Cancelar</button>
-        <button type="button" class="map-action-button map-action-button-active" (click)="cerrarFiltrosModal()">Aplicar filtros</button>
+        <div class="document-download-card">
+          <div>
+            <strong>Dashboard</strong>
+            <p>en este apartado se muestra la informacion de los Resultados.</p>
+          </div>
+
+          <button *ngIf="puedeEditarEstadisticasCrud" type="button" class="map-action-button map-action-button-active"
+            (click)="actualizar_dashboard()" [disabled]="cargandoDashboard">
+            {{ cargandoDashboard ? 'Actualizando...' : 'Ver informacion general' }}
+          </button>
+          <p class="map-modal-text" *ngIf="dashboardStatusMsg">{{ dashboardStatusMsg }}</p>
+        </div>
+
       </div>
     </form>
   </section>
+</div>
+
+<div class="popup-modal-backdrop" *ngIf="mostrarSubFiltrosModal" (click)="cerrarSubFiltrosModal()">
+  <div class="popup-modal popup-modal-subfilters" (click)="$event.stopPropagation()">
+    <div class="popup-modal-head">
+      <div>
+        <span class="card-kicker">Sub filtros</span>
+        <h2>Segmentacion operativa</h2>
+      </div>
+      <button class="popup-close" type="button" aria-label="Cerrar sub filtros"
+        (click)="cerrarSubFiltrosModal()">&times;</button>
+    </div>
+
+    <p class="map-modal-text">Selecciona los criterios operativos que deseas aplicar antes de consultar los resultados.
+    </p>
+
+    <div class="subfilters-grid">Selecciona la jerarquia operativa. Cada nivel depende directamente del padre anterior.
+
+      <!-- Unidades (original) -->
+      <section class="subfilter-card subfilter-card-wide unidades-launcher-card">
+        <div class="subfilter-launcher-head">
+          <div>
+            <span>Unidades</span>
+            <strong>Jerarquia operativa</strong>
+          </div>
+          <button type="button" class="map-action-button" (click)="abrirSelectorUnidadesModal()">
+            Unidades
+          </button>
+        </div>
+        <small class="subfilter-hint">Abre la ventana emergente para elegir divisiones, brigadas y UT de forma
+          anidada.</small>
+        <div class="subfilter-selection-summary"
+          *ngIf="getResumenJerarquiaUnidades().length; else unidadesSinSeleccion">
+          <span class="subfilter-summary-label">Seleccion actual</span>
+          <div class="subfilter-selection-chips">
+            <span class="subfilter-chip" *ngFor="let item of getResumenJerarquiaUnidades()">{{ item }}</span>
+          </div>
+        </div>
+        <ng-template #unidadesSinSeleccion>
+          <p class="subfilter-empty-state">Aun no has seleccionado unidades en la jerarquia operativa.</p>
+        </ng-template>
+      </section>
+
+      <!-- Lugar (original) -->
+      <section class="subfilter-card subfilter-card-wide unidades-launcher-card">
+        <div class="subfilter-launcher-head">
+          <div>
+            <span>Lugar</span>
+            <strong>Ubicacion geografica</strong>
+          </div>
+          <button type="button" class="map-action-button" (click)="abrirSelectorLugarModal()">
+            Lugar
+          </button>
+        </div>
+        <small class="subfilter-hint">Abre la ventana emergente para elegir departamento y municipio de forma
+          anidada.</small>
+        <div class="subfilter-selection-summary" *ngIf="getResumenLugar().length; else lugarSinSeleccion">
+          <span class="subfilter-summary-label">Seleccion actual</span>
+          <div class="subfilter-selection-chips">
+            <span class="subfilter-chip" *ngFor="let item of getResumenLugar()">{{ item }}</span>
+          </div>
+        </div>
+        <ng-template #lugarSinSeleccion>
+          <p class="subfilter-empty-state">Aun no has seleccionado un lugar en la jerarquia geografica.</p>
+        </ng-template>
+      </section>
+
+      <!-- Enemigo (original) -->
+      <section class="subfilter-card subfilter-card-wide unidades-launcher-card">
+        <div class="subfilter-launcher-head">
+          <div>
+            <span>Enemigo</span>
+            <strong>Clasificacion de enemigo</strong>
+          </div>
+          <button type="button" class="map-action-button" (click)="abrirSelectorEnemigoModal()">
+            Enemigo
+          </button>
+        </div>
+        <small class="subfilter-hint">Abre la ventana emergente para elegir enemigo y enemigo estructura.</small>
+        <div class="subfilter-selection-summary" *ngIf="getResumenEnemigo().length; else enemigoSinSeleccion">
+          <span class="subfilter-summary-label">Seleccion actual</span>
+          <div class="subfilter-selection-chips">
+            <span class="subfilter-chip" *ngFor="let item of getResumenEnemigo()">{{ item }}</span>
+          </div>
+        </div>
+        <ng-template #enemigoSinSeleccion>
+          <p class="subfilter-empty-state">Aun no has seleccionado clasificaciones de enemigo.</p>
+        </ng-template>
+      </section>
+
+      <!-- Sección Apoyos estilo subfiltro -->
+      <section class="subfilter-card subfilter-card-wide unidades-launcher-card">
+        <div class="subfilter-launcher-head">
+          <div>
+            <span>Subregiones</span>
+            <strong>Clasificación de subregiones</strong>
+          </div>
+          <button type="button" class="map-action-button" (click)="abrirSubregionesModal()">
+            Subregiones
+          </button>
+        </div>
+        <small class="subfilter-hint">Abre la ventana emergente para elegir una subregión y ver sus departamentos y
+          municipios.</small>
+
+
+        <div class="subfilter-selection-summary" *ngIf="subregionSeleccionada; else subregionSinSeleccion">
+          <span class="subfilter-summary-label">Selección actual</span>
+          <div class="subfilter-selection-chips">
+            <span class="subfilter-chip">{{ subregionSeleccionada.nombre }}</span>
+            <span *ngIf="departamentoSeleccionado" class="subfilter-chip">
+              {{ departamentoSeleccionado.nombre }}
+              <ng-container *ngIf="departamentoSeleccionado.municipios && departamentoSeleccionado.municipios.length">
+                : {{ departamentoSeleccionado.municipios.join(', ') }}
+              </ng-container>
+            </span>
+          </div>
+
+        </div>
+
+        <ng-template #subregionSinSeleccion>
+          <p class="subfilter-empty-state">Aún no has seleccionado una subregión.</p>
+        </ng-template>
+      </section>
+      <!-- Apoyos -->
+      <section class="subfilter-card subfilter-card-wide unidades-launcher-card">
+        <div class="subfilter-launcher-head">
+          <div>
+            <span>Apoyos</span>
+            <strong>Clasificación de apoyos</strong>
+          </div>
+          <button type="button" class="map-action-button" (click)="abrirApoyosModal()">
+            Apoyos
+          </button>
+        </div>
+        <small class="subfilter-hint">Abre la ventana emergente para elegir un apoyo y ver sus detalles.</small>
+
+
+        <div class="subfilter-selection-summary" *ngIf="apoyoSeleccionado; else apoyoSinSeleccion">
+          <span class="subfilter-summary-label">Selección actual</span>
+          <div class="subfilter-selection-chips">
+            <span class="subfilter-chip">{{ apoyoSeleccionado.nombre }}</span>
+            <span *ngIf="departamentoSeleccionado" class="subfilter-chip">
+              {{ departamentoSeleccionado.nombre }}
+              <ng-container *ngIf="departamentoSeleccionado.municipios && departamentoSeleccionado.municipios.length">
+                : {{ departamentoSeleccionado.municipios.join(', ') }}
+              </ng-container>
+            </span>
+          </div>
+
+        </div>
+
+        <ng-template #apoyoSinSeleccion>
+          <p class="subfilter-empty-state">Aún no has seleccionado un apoyo.</p>
+        </ng-template>
+      </section>
+      <label class="coordinate-input-card subfilter-card">
+        <span>Estado</span>
+        <select name="subFiltroEstadoModal" [(ngModel)]="filtrosForm.subFiltroEstado">
+          <option value="">Todos</option>
+          <option *ngFor="let estado of opcionesSubFiltros.estados" [value]="estado">{{ estado }}</option>
+        </select>
+        <small class="subfilter-hint">Filtro complementario para afinar el resultado.</small>
+      </label>
+    </div>
+
+    <p class="map-modal-text" *ngIf="!opcionesSubFiltros.divisiones.length">
+      No hay divisiones disponibles en las unidades cargadas para este usuario.
+    </p>
+
+    <div class="coordinate-modal-actions subfilters-actions">
+      <button type="button" class="map-action-button" (click)="limpiarSubFiltros()">Limpiar</button>
+      <button type="button" class="map-action-button" (click)="cerrarSubFiltrosModal()">Cancelar</button>
+      <button type="button" class="map-action-button map-action-button-active"
+        (click)="aplicarSubFiltros()">Aplicar</button>
+    </div>
+
+  </div>
+
+  <div class="subfilter-nested-backdrop" *ngIf="mostrarSelectorUnidadesModal" (click)="cerrarSelectorUnidadesModal()">
+    <div class="subfilter-nested-modal" (click)="$event.stopPropagation()">
+      <div class="popup-modal-head">
+        <div>
+          <span class="card-kicker">Unidades</span>
+          <h2>Jerarquia operativa</h2>
+        </div>
+        <button class="popup-close" type="button" aria-label="Cerrar selector de unidades"
+          (click)="cerrarSelectorUnidadesModal()">&times;</button>
+      </div>
+      <p class="map-modal-text">Selecciona la jerarquia operativa. Cada nivel depende directamente del padre anterior.
+      </p>
+      <div class="subfilters-grid subfilters-grid-nested">
+        <label class="coordinate-input-card subfilter-card">
+          <span>Divisiones</span>
+          <select name="subFiltroDivisionesFtModal" [(ngModel)]="filtrosForm.subFiltroDivisionesFt"
+            (ngModelChange)="onSubFiltroDivisionFtChange()" [disabled]="!opcionesSubFiltros.divisiones_ft.length">
+            <option value="">Todas</option>
+            <option *ngFor="let division of opcionesSubFiltros.divisiones_ft" [value]="division">{{ division }}
+            </option>
+          </select>
+          <small class="subfilter-hint">Primer nivel de la jerarquia.</small>
+        </label>
+        <label class="coordinate-input-card subfilter-card">
+          <span>Divisiones FT</span>
+          <select name="subFiltroDivisionesModal" [(ngModel)]="filtrosForm.subFiltroDivisiones"
+            (ngModelChange)="onSubFiltroDivisionChange()"
+            [disabled]="!filtrosForm.subFiltroDivisionesFt || !opcionesSubFiltros.divisiones.length">
+            <option value="">Todas</option>
+            <option *ngFor="let division of opcionesSubFiltros.divisiones" [value]="division">{{ division }}</option>
+          </select>
+          <small class="subfilter-hint">Segundo nivel dependiente de la division superior.</small>
+        </label>
+        <label class="coordinate-input-card subfilter-card">
+          <span>Brigadas</span>
+          <select class="subfilter-multiselect" name="subFiltroBrigadasModal"
+            [(ngModel)]="filtrosForm.subFiltroBrigadas" (ngModelChange)="onSubFiltroBrigadasChange()" multiple size="6"
+            [disabled]="!filtrosForm.subFiltroDivisiones || !opcionesSubFiltros.brigadas.length">
+            <option *ngFor="let brigada of opcionesSubFiltros.brigadas" [value]="brigada">{{ brigada }}</option>
+          </select>
+          <small class="subfilter-hint">Puedes seleccionar una o varias brigadas del padre actual.</small>
+        </label>
+        <label class="coordinate-input-card subfilter-card">
+          <span>Batallones</span>
+          <select class="subfilter-multiselect" name="subFiltroBatallonesModal"
+            [(ngModel)]="filtrosForm.subFiltroBatallones" (ngModelChange)="onSubFiltroBatallonesChange()" multiple
+            size="8" [disabled]="!filtrosForm.subFiltroBrigadas.length || !opcionesSubFiltros.batallones.length">
+            <option *ngFor="let batallon of opcionesSubFiltros.batallones" [value]="batallon">{{ batallon }}</option>
+          </select>
+          <small class="subfilter-hint">Puedes seleccionar uno o varios batallones del padre actual.</small>
+        </label>
+      </div>
+      <div class="coordinate-modal-actions subfilters-actions">
+        <button type="button" class="map-action-button" (click)="cerrarSelectorUnidadesModal()">Cerrar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal anidado para Lugar (Departamento y Municipio) -->
+  <div class="subfilter-nested-backdrop" *ngIf="mostrarSelectorLugarModal" (click)="cerrarSelectorLugarModal()">
+    <div class="subfilter-nested-modal subfilter-nested-modal-place" (click)="$event.stopPropagation()">
+      <div class="popup-modal-head">
+        <div>
+          <span class="card-kicker">Lugar</span>
+          <h2>Ubicación geográfica</h2>
+        </div>
+        <button class="popup-close" type="button" aria-label="Cerrar selector de lugar"
+          (click)="cerrarSelectorLugarModal()">&times;</button>
+      </div>
+      <p class="map-modal-text">Selecciona el departamento y municipio. Cada municipio depende del departamento
+        seleccionado.</p>
+      <div class="subfilters-grid subfilters-grid-nested">
+        <label class="coordinate-input-card subfilter-card">
+          <span>Departamento</span>
+          <select class="subfilter-multiselect" name="subFiltroDepartamentoModal"
+            [(ngModel)]="filtrosForm.subFiltroDepartamento" (ngModelChange)="onSubFiltroDepartamentoChange()" multiple
+            size="6" [disabled]="!opcionesSubFiltros.departamentos.length">
+            <option *ngFor="let dpto of opcionesSubFiltros.departamentos" [value]="dpto">{{ dpto }}</option>
+          </select>
+          <small class="subfilter-hint">Puedes seleccionar uno o varios departamentos.</small>
+        </label>
+        <label class="coordinate-input-card subfilter-card">
+          <span>Municipio</span>
+          <select class="subfilter-multiselect" name="subFiltroMunicipioModal"
+            [(ngModel)]="filtrosForm.subFiltroMunicipio" (ngModelChange)="onSubFiltroMunicipioChange()" multiple
+            size="8" [disabled]="!filtrosForm.subFiltroDepartamento.length || !opcionesSubFiltros.municipios.length">
+            <option *ngFor="let mpio of opcionesSubFiltros.municipios" [value]="mpio">{{ mpio }}</option>
+          </select>
+          <small class="subfilter-hint">Selecciona primero un departamento para habilitar sus municipios.</small>
+        </label>
+      </div>
+      <div class="coordinate-modal-actions subfilters-actions">
+        <button type="button" class="map-action-button" (click)="cerrarSelectorLugarModal()">Cerrar</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="subfilter-nested-backdrop" *ngIf="mostrarSelectorEnemigoModal" (click)="cerrarSelectorEnemigoModal()">
+    <div class="subfilter-nested-modal subfilter-nested-modal-place" (click)="$event.stopPropagation()">
+      <div class="popup-modal-head">
+        <div>
+          <span class="card-kicker">Enemigo</span>
+          <h2>Clasificacion de enemigo</h2>
+        </div>
+        <button class="popup-close" type="button" aria-label="Cerrar selector de enemigo"
+          (click)="cerrarSelectorEnemigoModal()">&times;</button>
+      </div>
+
+      <p class="map-modal-text">Selecciona los catalogos de enemigo y enemigo estructura de forma independiente.</p>
+
+      <div class="subfilters-grid subfilters-grid-nested subfilters-grid-independent">
+        <section class="coordinate-input-card subfilter-card subfilter-card-select-panel">
+          <div class="subfilter-panel-head">
+            <div>
+              <span>Enemigo</span>
+              <strong>Catalogo principal</strong>
+            </div>
+            <small>{{ filtrosForm.subFiltroEnemigo.length }} seleccionados</small>
+          </div>
+
+          <select class="subfilter-multiselect" name="subFiltroEnemigoModal" [(ngModel)]="filtrosForm.subFiltroEnemigo"
+            (ngModelChange)="onSubFiltroEnemigoChange()" multiple size="8"
+            [disabled]="!opcionesSubFiltros.enemigos.length">
+            <option *ngFor="let enemigo of opcionesSubFiltros.enemigos" [value]="enemigo">{{ enemigo }}</option>
+          </select>
+
+          <small class="subfilter-hint">
+            Puedes seleccionar uno o varios enemigos disponibles para el usuario.
+          </small>
+        </section>
+
+        <section class="coordinate-input-card subfilter-card subfilter-card-select-panel">
+          <div class="subfilter-panel-head">
+            <div>
+              <span>Enemigo estructura</span>
+              <strong>Catalogo dependiente</strong>
+            </div>
+            <small>{{ filtrosForm.subFiltroEnemigoEstructura.length }} seleccionados</small>
+          </div>
+
+          <select class="subfilter-multiselect" name="subFiltroEnemigoEstructuraModal"
+            [(ngModel)]="filtrosForm.subFiltroEnemigoEstructura" (ngModelChange)="onSubFiltroEnemigoEstructuraChange()"
+            multiple size="8"
+            [disabled]="!filtrosForm.subFiltroEnemigo.length || !opcionesSubFiltros.enemigosEstructura.length">
+            <option *ngFor="let estructura of opcionesSubFiltros.enemigosEstructura" [value]="estructura">{{
+              estructura }}</option>
+          </select>
+
+          <small class="subfilter-hint">
+            Selecciona primero un enemigo para habilitar sus estructuras asociadas.
+          </small>
+        </section>
+      </div>
+
+      <div class="coordinate-modal-actions subfilters-actions">
+        <button type="button" class="map-action-button" (click)="cerrarSelectorEnemigoModal()">Cerrar</button>
+      </div>
+    </div>
+  </div>
+
+
+  <!-- Modal Subregiones con layout de 3 columnas -->
+  <div class="popup-modal-backdrop subregiones-modal-center" *ngIf="mostrarSubregionesModal"
+    (click)="cerrarSubregionesModal()">
+    <div class="popup-modal subregiones-modal-3col subregiones-modal-enhanced" (click)="$event.stopPropagation()">
+      <div class="popup-modal-head">
+        <span class="card-kicker">Subregiones</span>
+        <h2>Selecciona una subregión</h2>
+        <button class="popup-close" type="button" aria-label="Cerrar"
+          (click)="cerrarSubregionesModal()">&times;</button>
+      </div>
+      <div class="subregiones-3col-layout subregiones-3col-layout-diff">
+        <!-- Columna izquierda: subregiones -->
+        <div class="subregiones-col subregiones-list subregiones-list-enhanced subregiones-col-diff">
+          <h3 class="subregiones-list-title">Subregiones</h3>
+          <div class="subregiones-list-scroll">
+            <div *ngFor="let sub of subregiones" class="subregion-list-item">
+              <button class="map-action-button subregion-btn" [class.selected]="subregionSeleccionada === sub"
+                (click)="seleccionarSubregion(sub)">{{ sub.nombre }}</button>
+            </div>
+          </div>
+        </div>
+        <!-- Columna derecha: departamentos y municipios juntos -->
+        <div class="subregiones-col subregiones-deptos-mpios subregiones-deptos-mpios-enhanced subregiones-col-diff">
+          <div *ngIf="subregionSeleccionada">
+            <h3 class="deptos-title">Departamentos</h3>
+            <div class="subregiones-counts">
+              <span class="count-label">Departamentos:</span>
+              <span class="count-value">{{ subregionSeleccionada.departamentos.length }}</span>
+              <span class="count-label">Municipios:</span>
+              <span class="count-value">{{ subregionSeleccionada.departamentos.reduce((acc, d) => acc +
+                (d.municipios?.length || 0), 0) }}</span>
+            </div>
+            <div class="deptos-list-scroll">
+              <div *ngFor="let dep of subregionSeleccionada.departamentos" class="departamento-list-item">
+                <button class="map-action-button depto-btn" [class.selected]="departamentoSeleccionado === dep"
+                  (click)="seleccionarDepartamento(dep)">{{ dep.nombre }}</button>
+              </div>
+            </div>
+            <div *ngIf="departamentoSeleccionado" class="municipios-list-block municipios-list-block-enhanced">
+              <h3 class="mpios-title">Municipios</h3>
+              <ul class="mpios-list-scroll">
+                <li *ngFor="let mpio of departamentoSeleccionado.municipios">{{ mpio }}</li>
+              </ul>
+            </div>
+          </div>
+          <div *ngIf="!subregionSeleccionada" class="subregiones-empty-state">
+            <p>Selecciona una subregión para ver sus departamentos y municipios.</p>
+          </div>
+        </div>
+      </div>
+      <div class="coordinate-modal-actions subfilters-actions subregiones-actions-enhanced">
+        <button type="button" class="map-action-button map-action-button-active"
+          (click)="cerrarSelectorSubRegionesModal()">Cerrar</button>
+      </div>
+    </div>
+  </div>
+
+
 </div>

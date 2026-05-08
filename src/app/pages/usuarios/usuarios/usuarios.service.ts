@@ -90,7 +90,7 @@ export interface Pagina {
 @Injectable({ providedIn: 'root' })
 export class UsuariosService {
 
-  private api = `${environment.apiUrl_2}`;
+  private api = `${environment.apiBase}${environment.services?.usuarios ?? '/usuarios'}`;
 
   constructor(private http: HttpClient) {}
 

@@ -1,13 +1,23 @@
 
+// ...existing code...
+
+
 
 
 import { CommonModule, DOCUMENT } from '@angular/common';
 import { AfterViewInit, ChangeDetectorRef, Component, ElementRef, Inject, NgZone, OnDestroy, ViewChild } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import html2canvas from 'html2canvas';
+// @ts-ignore
+import leafletImage from 'leaflet-image';
 import * as L from 'leaflet';
 import 'leaflet-draw';
 import { SidebarComponent } from '../../shared/sidebar/sidebar.component';
+import { environment } from '../../../environments/environment';
+import { HttpClient } from '@angular/common/http';
+import { catchError, throwError } from 'rxjs';
+import { AuthService, PermisoAcceso } from '../../services/auth';
+import { UnidadesTreeService } from '../../services/unidades-tree.service';
 
 type Evento = {
   id: number;
@@ -22,7 +32,33 @@ type Evento = {
     division: string;
   }>;
 };
+
+type TipoDashboard = {
+  key: string;
+  tipo: string;
+  total: number;
+};
+
+type MapaPunto = {
+  latitud: number;
+  longitud: number;
+  cantidad: number;
+  ubicacion: string;
+  division: string;
+  tipo: string;
+  tipoKey: string;
+  cantidadRegistros: number;
+  latitudRender: number;
+  longitudRender: number;
+};
+
 type CoordinateSystem = 'decimal' | 'dms';
+
+type MapLegendItem = {
+  label: string;
+  color: string;
+  kind?: 'dot' | 'line';
+};
 
 @Component({
   selector: 'app-estadisticas',
@@ -32,12 +68,135 @@ type CoordinateSystem = 'decimal' | 'dms';
   styleUrls: ['./estadisticas.component.css']
 })
 export class EstadisticasComponent implements AfterViewInit, OnDestroy {
+  // ...existing code...
+
+
+  // --- SUBREGIONES ---
+  mostrarSubregionesModal = false;
+  mostrarApoyosModal = false;
+  subregiones: any[] = [];
+  subregionSeleccionada: any = null;
+  departamentoSeleccionado: any = null;
+
+  apoyosUnificados = [
+    // Apoyos de unidad ya estructurados
+    { id: 'sin_apoyo', valor: '', texto: 'Sin Apoyo' },
+    { id: 'apoyo_davaa', valor: 'APOYO DAVAA', texto: 'Apoyo DAVAA' },
+    { id: 'apoyo_conat', valor: 'APOYO CONAT', texto: 'Apoyo CONAT' },
+    { id: 'apoyo_blica', valor: 'APOYO BLICA', texto: 'Apoyo BLICA' },
+    // Apoyos originales como objetos
+    { id: 'HOP_ACCION_CCOES', valor: 'Apoyo CCOES', texto: 'Apoyo CCOES' },
+    { id: 'HOP_APOYO_AEREO_ALFA', valor: 'Apoyo AÉREO MISIÓN ALFA', texto: 'Apoyo AÉREO MISIÓN ALFA' },
+    { id: 'HOP_APOYO_AEREO_BETA', valor: 'Apoyo AÉREO MISIÓN BETA', texto: 'Apoyo AÉREO MISIÓN BETA' },
+    { id: 'HOP_APOYO_AEREO_CHARLIE', valor: 'Apoyo AÉREO MISIÓN CHARLIE', texto: 'Apoyo AÉREO MISIÓN CHARLIE' },
+    { id: 'HOP_APOYO_ART', valor: 'Apoyo ART', texto: 'Apoyo ART' },
+    { id: 'HOP_APOYO_BAFUR', valor: 'Apoyo BAFUR', texto: 'Apoyo BAFUR' },
+    { id: 'HOP_APOYO_BRCMI', valor: 'Apoyo BRCMI', texto: 'Apoyo BRCMI' },
+    { id: 'HOP_APOYO_BRCOM', valor: 'Apoyo BRCOM', texto: 'Apoyo BRCOM' },
+    { id: 'HOP_APOYO_DIVFE', valor: 'Apoyo DIVFE', texto: 'Apoyo DIVFE' },
+    { id: 'HOP_APOYO_EXDE', valor: 'Apoyo EXDE', texto: 'Apoyo EXDE' },
+    { id: 'HOP_APOYO_FUDAT', valor: 'Apoyo FUDAT', texto: 'Apoyo FUDAT' },
+    { id: 'HOP_APOYO_GROIC', valor: 'Apoyo GROIC', texto: 'Apoyo GROIC' },
+    { id: 'HOP_APOYO_PJ', valor: 'Apoyo PJ', texto: 'Apoyo PJ' },
+    { id: 'HOP_ASALTO_AEREO', valor: 'Apoyo AÉREO', texto: 'Apoyo AÉREO' },
+    { id: 'apoyo_coeej', valor: 'Apoyo COEEJ', texto: 'Apoyo COEEJ' },
+    { id: 'unidad_brcmi', valor: 'UNIDAD BRCMI', texto: 'UNIDAD BRCMI' }
+
+  ];
+
+  apoyoSeleccionado: { [key: string]: boolean } = {};
+  abrirSubregionesModal() {
+    this.mostrarSubregionesModal = true;
+    this.subregionSeleccionada = null;
+  }
+
+  cerrarSubregionesModal() {
+    this.mostrarSubregionesModal = false;
+    this.subregionSeleccionada = null;
+  }
+
+
+  seleccionarSubregion(sub: any) {
+    this.subregionSeleccionada = sub;
+    this.departamentoSeleccionado = null;
+  }
+
+  seleccionarDepartamento(dep: any) {
+    this.departamentoSeleccionado = dep;
+  }
+
+
+  // Permisos CRUD de esta vista:
+  // - `puede_ver` controla resumenes, tablas, graficas y exportaciones
+  // - `puede_crear` controla herramientas que agregan elementos al mapa
+  // - `puede_editar` controla filtros y actualizacion del dashboard
+  // - `puede_eliminar` controla acciones de limpieza/remocion
+
+  // Alternativa: exportar el mapa como imagen usando html2canvas (captura todo lo visible)
+  async exportarMapaComoImagenHtml2Canvas() {
+    // Captura el contenedor padre que incluye todos los overlays y controles
+    const mapCaptureSurface = document.querySelector('.map-capture-surface') as HTMLElement;
+    if (!mapCaptureSurface) {
+      alert('No se encontró el contenedor principal del mapa.');
+      return;
+    }
+    try {
+      this.exportingMapImage = true;
+      this.cdr.detectChanges();
+      await new Promise((resolve) => setTimeout(resolve, 600));
+      const canvas = await html2canvas(mapCaptureSurface, {
+        backgroundColor: '#fffaf8',
+        scale: window.devicePixelRatio > 1 ? 2 : 1,
+        useCORS: true,
+        logging: false
+      });
+      const link = document.createElement('a');
+      link.download = `${this.getMapExportFileName().replace(/\.kml$/i, '')}_todo.png`;
+      link.href = canvas.toDataURL('image/png');
+      link.click();
+    } finally {
+      this.exportingMapImage = false;
+      this.cdr.detectChanges();
+    }
+  }
+  @ViewChild('convencionesModalRef', { static: false }) convencionesModalRef!: ElementRef;
+  public tipoMapaActivo: string = 'Calles';
+  // Descargar la ventana de convenciones como imagen
+  async descargarConvencionesComoImagen() {
+    const modal = this.convencionesModalRef?.nativeElement as HTMLElement | undefined;
+    if (!modal) {
+      alert('No se encontró la ventana de convenciones.');
+      return;
+    }
+    const canvas = await html2canvas(modal, {
+      backgroundColor: '#fff',
+      scale: window.devicePixelRatio > 1 ? 2 : 1,
+      useCORS: true,
+      logging: false
+    });
+    const link = document.createElement('a');
+    link.download = 'convenciones.png';
+    link.href = canvas.toDataURL('image/png');
+    link.click();
+  }
+  // Cambiar tipo de mapa activo (debe llamarse desde el handler de cambio de capa base)
+  public onTipoMapaChange(tipo: string) {
+    this.tipoMapaActivo = tipo;
+  }
+  public mostrarConvencionesModal = false;
   readonly allTypesToken = '__ALL_TYPES__';
 
+  private api = `${environment.apiBase}${environment.services?.dashboard ?? '/dashboard'}`;
   mostrarPivotModal = false;
 
   mostrarGraficasModal = false;
   mostrarTablaModal = false;
+  mostrarResumenModal = false;
+  mostrarSubFiltrosModal = false;
+  mostrarSelectorUnidadesModal = false;
+  mostrarSelectorLugarModal = false;
+  mostrarSelectorEnemigoModal = false;
+  exportingMapImage = false;
 
   // Descargar gráficas como imagen (usa html2canvas)
   async descargarGraficasComoImagen() {
@@ -79,61 +238,114 @@ export class EstadisticasComponent implements AfterViewInit, OnDestroy {
     link.click();
   }
 
-  // Tooltip para gráfica comparativa
-  setTooltipPosition(event: MouseEvent) {
-    const x = event.clientX;
-    const y = event.clientY;
-    document.documentElement.style.setProperty('--tooltip-mouse-x', x + 'px');
-    document.documentElement.style.setProperty('--tooltip-mouse-y', y + 'px');
-  }
-  clearTooltipPosition() {
-    document.documentElement.style.setProperty('--tooltip-mouse-x', '50vw');
-    document.documentElement.style.setProperty('--tooltip-mouse-y', '0px');
-  }
 
-    getPivotTableData() {
-      const tipos = this.getTiposActivos();
-      const divisiones = Array.from(
-        new Set(
-          tipos.flatMap((tipo) => (this.puntosPorTipo[tipo.tipo] || []).map((punto) => punto.division))
-        )
-      ).sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
-
-      const rows = tipos.map((tipo) => {
-        const valores: Record<string, number> = {};
-        let total = 0;
-
-        for (const division of divisiones) {
-          valores[division] = 0;
-        }
-
-        for (const punto of this.puntosPorTipo[tipo.tipo] || []) {
-          valores[punto.division] = (valores[punto.division] || 0) + punto.cantidad;
-          total += punto.cantidad;
-        }
-
-        return {
-          tipo: tipo.tipo,
-          valores,
-          total
-        };
+  async descargarMapaComoImagen() {
+    // Exportar usando leaflet-image para capturar el mapa y los puntos nativos de Leaflet
+    if (!this.map) {
+      alert('No se encontró el mapa de Leaflet.');
+      return;
+    }
+    try {
+      this.exportingMapImage = true;
+      this.cdr.detectChanges();
+      this.map.invalidateSize();
+      await new Promise((resolve) => setTimeout(resolve, 400));
+      await new Promise<void>((resolve, reject) => {
+        leafletImage(this.map as L.Map, (err: any, canvas: HTMLCanvasElement) => {
+          if (err || !canvas) {
+            reject(err || new Error('No se pudo capturar el mapa base.'));
+            return;
+          }
+          const link = document.createElement('a');
+          link.download = `${this.getMapExportFileName().replace(/\.kml$/i, '')}.png`;
+          link.href = canvas.toDataURL('image/png');
+          link.click();
+          resolve();
+        });
       });
+    } finally {
+      this.exportingMapImage = false;
+      this.cdr.detectChanges();
+    }
+  }
 
-      const totalGeneral: Record<string, number> = {};
+  // Fallback: solo overlays (sin mapa base)
+  async descargarMapaComoImagenSoloOverlays() {
+    const captureSurface = this.mapCaptureSurfaceRef?.nativeElement;
+    if (!captureSurface) {
+      alert('No se encontró el contenedor del mapa.');
+      return;
+    }
+    try {
+      const overlayCanvas = await html2canvas(captureSurface, {
+        backgroundColor: '#fffaf8',
+        scale: window.devicePixelRatio > 1 ? 2 : 1,
+        useCORS: true,
+        logging: false
+      });
+      const link = document.createElement('a');
+      link.download = `${this.getMapExportFileName().replace(/\.kml$/i, '')}_solo_overlays.png`;
+      link.href = overlayCanvas.toDataURL('image/png');
+      link.click();
+      alert('El mapa base no pudo ser exportado por restricciones de CORS. Solo se exportaron los puntos y la leyenda.');
+    } catch (error) {
+      alert('No fue posible generar la imagen del mapa.');
+    }
+  }
+
+  // Tooltip para gráfica comparativa
+
+  getPivotTableData(): {
+    divisiones: string[];
+    rows: Array<{ tipo: string; valores: Record<string, number>; total: number }>;
+    totalGeneral: Record<string, number>;
+    totalGlobal: number;
+  } {
+    const tipos: Array<{ key: string; tipo: string; total: number }> = this.getTiposActivos();
+    const divisiones: string[] = Array.from(
+      new Set(
+        tipos.flatMap((tipo: { key: string }) => (this.puntosPorTipo[tipo.key] || []).map((punto: { division: string }) => punto.division))
+      )
+    ).sort((a: string, b: string) => a.localeCompare(b, undefined, { numeric: true }));
+
+    const rows: Array<{ tipo: string; valores: Record<string, number>; total: number }> = tipos.map((tipo: { key: string; tipo: string; total: number }) => {
+      const valores: Record<string, number> = {};
+      let total = 0;
+
       for (const division of divisiones) {
-        totalGeneral[division] = rows.reduce((acc, row) => acc + (row.valores[division] || 0), 0);
+        valores[division] = 0;
       }
 
+      for (const punto of (this.puntosPorTipo[tipo.key] || []) as Array<{ division: string; cantidad: number }>) {
+        valores[punto.division] = (valores[punto.division] || 0) + punto.cantidad;
+      }
+
+      total = tipo.total;
+
       return {
-        divisiones,
-        rows,
-        totalGeneral,
-        totalGlobal: rows.reduce((acc, row) => acc + row.total, 0)
+        tipo: tipo.tipo,
+        valores,
+        total
       };
+    });
+
+    const totalGeneral: Record<string, number> = {};
+    for (const division of divisiones) {
+      totalGeneral[division] = rows.reduce((acc: number, row) => acc + (row.valores[division] || 0), 0);
     }
+
+    return {
+      divisiones,
+      rows,
+      totalGeneral,
+      totalGlobal: rows.reduce((acc: number, row) => acc + row.total, 0)
+    };
+  }
   @ViewChild('leafletMap') leafletMapRef?: ElementRef<HTMLDivElement>;
   @ViewChild('mapPanel') mapPanelRef?: ElementRef<HTMLElement>;
-  
+  @ViewChild('mapCaptureSurface') mapCaptureSurfaceRef?: ElementRef<HTMLDivElement>;
+
+  permisoEstadisticas: PermisoAcceso | null = null;
 
   sidebarVisible = true;
   textModeEnabled = false;
@@ -147,16 +359,37 @@ export class EstadisticasComponent implements AfterViewInit, OnDestroy {
   coordinateSystem: CoordinateSystem = 'decimal';
   coordinateForm = { lat: '', lng: '', label: '' };
   coordinateDmsForm = { latDegrees: '', latMinutes: '', latSeconds: '', latHemisphere: 'N', lngDegrees: '', lngMinutes: '', lngSeconds: '', lngHemisphere: 'W', label: '' };
-  filtrosForm = { lapsoInicialA: '', lapsoInicialB: '', lapsoFinalA: '', lapsoFinalB: '', subFiltroRegional: '', subFiltroUnidad: '', subFiltroEstado: '', documentosTipo: '', documentosOrigen: '', documentosClasificacion: '' };
+  filtrosForm = {
+    lapsoInicialA: '',
+    lapsoInicialB: '',
+    lapsoFinalA: '',
+    lapsoFinalB: '',
+    subFiltroRegional: '',
+    subFiltroDivisionesFt: '',
+    subFiltroDivisiones: '',
+    subFiltroBrigadas: [] as string[],
+    subFiltroBatallones: [] as string[],
+    subFiltroUt: [] as string[],
+    subFiltroDepartamento: [] as string[],
+    subFiltroMunicipio: [] as string[],
+    subFiltroEnemigo: [] as string[],
+    subFiltroEnemigoEstructura: [] as string[],
+    subFiltroEstado: '',
+    documentosTipo: '',
+    documentosOrigen: '',
+    documentosClasificacion: ''
+  };
 
   // --- NUEVO: Datos dinámicos de ejemplo ---
   eventos: Evento[] = [];
   categorias: string[] = [];
-  tiposPorCategoria: Record<string, { tipo: string; total: number }[]> = {};
+  tiposPorCategoria: Record<string, TipoDashboard[]> = {};
   puntosPorTipo: Record<string, Evento['puntos']> = {};
   coloresPorTipo: Record<string, string> = {};
   tipoSeleccionado: string | null = null;
   categoriaSeleccionada: string | null = null;
+  cargandoDashboard = false;
+  dashboardStatusMsg = '';
 
   // Paleta de colores para tipos
   readonly palette = [
@@ -168,9 +401,10 @@ export class EstadisticasComponent implements AfterViewInit, OnDestroy {
     const tipos = this.getTiposActivos();
     const total = tipos.reduce((acc, t) => acc + t.total, 0) || 1;
     return tipos.map(t => ({
+      key: t.key,
       label: t.tipo,
       value: Math.round((t.total / total) * 100),
-      color: this.getColorTipo(t.tipo)
+      color: this.getColorTipo(t.key)
     }));
   }
 
@@ -193,17 +427,28 @@ export class EstadisticasComponent implements AfterViewInit, OnDestroy {
   constructor(
     private readonly cdr: ChangeDetectorRef,
     private readonly ngZone: NgZone,
-    @Inject(DOCUMENT) private readonly document: Document
-  ) {}
+    @Inject(DOCUMENT) private readonly document: Document,
+    private http: HttpClient,
+    private auth: AuthService,
+    private unidadesTreeService: UnidadesTreeService
+  ) { }
 
   // --- FIN NUEVO ---
 
-
+  subFiltroDivisiones = '';
   readonly opcionesSubFiltros = {
-    regionales: ['Norte', 'Centro', 'Sur', 'Pacifico'],
-    unidades: ['Unidad Alfa', 'Unidad Bravo', 'Unidad Charlie', 'Unidad Delta'],
+    divisiones: [] as string[],
+    divisiones_ft: [] as string[],
+    brigadas: [] as string[],
+    batallones: [] as string[],
+    uts: [] as string[],
+    departamentos: [] as string[],
+    municipios: [] as string[],
+    enemigos: [] as string[],
+    enemigosEstructura: [] as string[],
     estados: ['Activo', 'En revision', 'Pendiente', 'Cerrado']
   };
+  private mapaEnemigoEstructura: Record<string, string[]> = {};
 
   readonly opcionesDocumentos = {
     tipos: ['Informe', 'Acta', 'Oficio', 'Memorando'],
@@ -212,33 +457,104 @@ export class EstadisticasComponent implements AfterViewInit, OnDestroy {
   };
 
 
-  // --- NUEVO: Inicialización de datos de ejemplo y helpers ---
+  // --- NUEVO: Inicialización de datos desde backend ---
   ngOnInit() {
-    // Simular fetch de backend
-    this.eventos = this.getEventosEjemplo();
-    this.categorias = Array.from(new Set(this.eventos.map(e => e.categoria)));
-    this.tiposPorCategoria = {};
-    this.puntosPorTipo = {};
-    this.coloresPorTipo = {};
-    let colorIdx = 0;
-    for (const cat of this.categorias) {
-      const tipos = this.eventos.filter(e => e.categoria === cat).map(e => ({ tipo: e.tipo, total: e.cantidad_total }));
-      this.tiposPorCategoria[cat] = tipos;
-      for (const t of tipos) {
-        this.puntosPorTipo[t.tipo] = this.eventos.find(e => e.tipo === t.tipo)?.puntos || [];
-        if (!this.coloresPorTipo[t.tipo]) {
-          this.coloresPorTipo[t.tipo] = this.palette[colorIdx % this.palette.length];
-          colorIdx++;
+    // Se toma el permiso de la ruta principal para aplicar acciones internas
+    // del componente sin depender del sidebar.
+    this.permisoEstadisticas = this.auth.obtenerPermisoRuta('/estadisticas');
+    this.cargarOpcionesSubFiltrosDesdeUsuario();
+    this.cargandoDashboard = false;
+    this.dashboardStatusMsg = 'Selecciona las fechas y consulta el dashboard.';
+    // Cargar subregiones dinámicamente desde el backend/localStorage
+    this.subregiones = this.auth.obtenerSubRegionesUsuario();
+    // Obtener datos reales del backend
+    this.http.get<any>(`${this.api}`).pipe(
+      catchError(error => {
+        console.error('Error al obtener eventos:', error);
+        return throwError(() => error);
+      })
+    ).subscribe({
+      next: (resp) => {
+        // Espera que resp tenga la forma { eventos: Evento[] } o similar
+        let eventosRaw = resp?.eventos;
+        if (!Array.isArray(eventosRaw)) {
+          // Si el backend devuelve un objeto, intenta convertirlo a array
+          if (eventosRaw && typeof eventosRaw === 'object') {
+            eventosRaw = Object.values(eventosRaw);
+          } else {
+            eventosRaw = [];
+          }
         }
+        this.eventos = eventosRaw.map((ev: any) => {
+          // El backend anida puntos por división, hay que aplanar y normalizar tipos
+          let puntos: any[] = [];
+          if (Array.isArray(ev.puntos)) {
+            for (const div of ev.puntos) {
+              if (Array.isArray(div.puntos)) {
+                puntos = puntos.concat(div.puntos.map((p: any) => ({
+                  ...p,
+                  latitud: typeof p.latitud === 'string' ? parseFloat(p.latitud) : p.latitud,
+                  longitud: typeof p.longitud === 'string' ? parseFloat(p.longitud) : p.longitud,
+                  cantidad: typeof p.cantidad === 'string' ? parseFloat(p.cantidad) : p.cantidad,
+                  ubicacion: p.ubicacion,
+                  division: p.division
+                })));
+              }
+            }
+          }
+          return {
+            id: ev.id,
+            categoria: ev.categoria,
+            tipo: ev.tipo,
+            cantidad_total: typeof ev.cantidad_total === 'string' ? parseFloat(ev.cantidad_total) : ev.cantidad_total,
+            puntos
+          };
+        });
+        // Organizar categorías y tipos igual que el ejemplo
+        this.categorias = Array.from(new Set(this.eventos.map(e => e.categoria)));
+        this.tiposPorCategoria = {};
+        this.puntosPorTipo = {};
+        this.coloresPorTipo = {};
+        let colorIdx = 0;
+        for (const cat of this.categorias) {
+          const tipos = this.eventos
+            .filter(e => e.categoria === cat)
+            .map(e => ({ key: this.buildTipoKey(e.categoria, e.tipo), tipo: e.tipo, total: e.cantidad_total }));
+          this.tiposPorCategoria[cat] = tipos;
+          for (const t of tipos) {
+            this.puntosPorTipo[t.key] = this.eventos.find(e => this.buildTipoKey(e.categoria, e.tipo) === t.key)?.puntos || [];
+            if (!this.coloresPorTipo[t.key]) {
+              this.coloresPorTipo[t.key] = this.palette[colorIdx % this.palette.length];
+              colorIdx++;
+            }
+          }
+        }
+        // Selección inicial: primera categoría y tipo
+        this.categoriaSeleccionada = this.categorias[0] || null;
+        this.tipoSeleccionado = this.allTypesToken;
+        // Renderizar marcadores y refrescar vista
+        setTimeout(() => {
+          this.renderMarkers();
+          this.cdr.markForCheck();
+        }, 0);
+        this.dashboardStatusMsg = this.eventos.length
+          ? `Dashboard cargado. ${this.eventos.length} tipos disponibles.`
+          : 'No hay datos para mostrar.';
+        this.cargandoDashboard = false;
+      },
+      error: (err) => {
+        this.dashboardStatusMsg = 'No fue posible cargar el dashboard.';
+        this.cargandoDashboard = false;
       }
-    }
-    // Selección inicial: primera categoría y tipo
-    this.categoriaSeleccionada = this.categorias[0] || null;
-    this.tipoSeleccionado = this.allTypesToken;
+    });
   }
 
 
   setCategoria(cat: string) {
+    if (!this.puedeVerEstadisticasCrud) {
+      return;
+    }
+
     this.categoriaSeleccionada = cat;
     this.tipoSeleccionado = this.allTypesToken;
     this.renderMarkers();
@@ -246,8 +562,12 @@ export class EstadisticasComponent implements AfterViewInit, OnDestroy {
   }
 
 
-  setTipo(tipo: string) {
-    this.tipoSeleccionado = tipo;
+  setTipo(tipoKey: string) {
+    if (!this.puedeVerEstadisticasCrud) {
+      return;
+    }
+
+    this.tipoSeleccionado = tipoKey;
     this.renderMarkers();
     setTimeout(() => this.map?.invalidateSize(), 100);
   }
@@ -259,19 +579,57 @@ export class EstadisticasComponent implements AfterViewInit, OnDestroy {
   getPuntosActivos() {
     if (this.tipoSeleccionado === this.allTypesToken) {
       return this.getTiposActivos().flatMap((tipo) =>
-        (this.puntosPorTipo[tipo.tipo] || []).map((punto) => ({
+        (this.puntosPorTipo[tipo.key] || []).map((punto) => ({
           ...punto,
-          tipo: tipo.tipo
+          tipo: tipo.tipo,
+          tipoKey: tipo.key
         }))
       );
     }
 
     return this.tipoSeleccionado
       ? (this.puntosPorTipo[this.tipoSeleccionado] || []).map((punto) => ({
-          ...punto,
-          tipo: this.tipoSeleccionado as string
-        }))
+        ...punto,
+        tipo: this.getTiposActivos().find((tipo) => tipo.key === this.tipoSeleccionado)?.tipo || 'Tipo',
+        tipoKey: this.tipoSeleccionado as string
+      }))
       : [];
+  }
+
+  get mapLegendItems(): MapLegendItem[] {
+    const items: MapLegendItem[] = [];
+
+    if (this.map?.hasLayer(this.markerLayer)) {
+      const tipos = this.tipoSeleccionado && this.tipoSeleccionado !== this.allTypesToken
+        ? this.getTiposActivos().filter((tipo) => tipo.key === this.tipoSeleccionado)
+        : this.getTiposActivos();
+
+      for (const tipo of tipos) {
+        items.push({
+          label: tipo.tipo,
+          color: this.getColorTipo(tipo.key),
+          kind: 'dot'
+        });
+      }
+    }
+
+    if (this.map?.hasLayer(this.editableLayers) && this.editableLayers.getLayers().length) {
+      items.push({
+        label: 'Elementos creados',
+        color: '#37474f',
+        kind: 'line'
+      });
+    }
+
+    if (this.map?.hasLayer(this.measurementLayer) && this.measurementLayer.getLayers().length) {
+      items.push({
+        label: 'Medición',
+        color: '#e65100',
+        kind: 'line'
+      });
+    }
+
+    return items;
   }
 
   isShowingAllTypes() {
@@ -284,13 +642,14 @@ export class EstadisticasComponent implements AfterViewInit, OnDestroy {
       .replace(/\s+/g, '-')
       .normalize('NFD')
       .replace(/[\u0300-\u036f]/g, '');
+    const tipoActivo = this.getTiposActivos().find((tipo) => tipo.key === this.tipoSeleccionado)?.tipo;
     const scope = this.isShowingAllTypes()
       ? 'todos-los-tipos'
-      : (this.tipoSeleccionado || 'sin-tipo')
-          .toLowerCase()
-          .replace(/\s+/g, '-')
-          .normalize('NFD')
-          .replace(/[\u0300-\u036f]/g, '');
+      : (tipoActivo || 'sin-tipo')
+        .toLowerCase()
+        .replace(/\s+/g, '-')
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '');
 
     return `${categoria}-${scope}.kml`;
   }
@@ -303,6 +662,14 @@ export class EstadisticasComponent implements AfterViewInit, OnDestroy {
 
 
   ngAfterViewInit() {
+    // Escuchar el cambio de base layer para actualizar tipoMapaActivo
+    if (this.map) {
+      this.map.on('baselayerchange', (e: any) => {
+        this.ngZone.run(() => {
+          this.tipoMapaActivo = e.name;
+        });
+      });
+    }
     this.applyLeafletRuntimePatches();
     this.initializeMap();
     this.scheduleMapResize(200);
@@ -425,7 +792,7 @@ export class EstadisticasComponent implements AfterViewInit, OnDestroy {
     refreshMarkerLayer(this.editableLayers);
   }
 
-  
+
   private initializeMap() {
     const host = this.leafletMapRef?.nativeElement;
 
@@ -576,19 +943,23 @@ export class EstadisticasComponent implements AfterViewInit, OnDestroy {
     return {
       Calles: L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
         maxZoom: 19,
-        attribution: '&copy; OpenStreetMap contributors'
+        attribution: '&copy; OpenStreetMap contributors',
+        crossOrigin: 'anonymous'
       }),
       Topografico: L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', {
         maxZoom: 17,
-        attribution: 'Map data: &copy; OpenStreetMap contributors, SRTM | Map style: &copy; OpenTopoMap'
+        attribution: 'Map data: &copy; OpenStreetMap contributors, SRTM | Map style: &copy; OpenTopoMap',
+        crossOrigin: 'anonymous'
       }),
       Claro: L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
         maxZoom: 20,
-        attribution: '&copy; OpenStreetMap contributors &copy; CARTO'
+        attribution: '&copy; OpenStreetMap contributors &copy; CARTO',
+        crossOrigin: 'anonymous'
       }),
       Satelital: L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
         maxZoom: 18,
-        attribution: 'Tiles &copy; Esri'
+        attribution: 'Tiles &copy; Esri',
+        crossOrigin: 'anonymous'
       })
     };
   }
@@ -689,6 +1060,29 @@ export class EstadisticasComponent implements AfterViewInit, OnDestroy {
     this.mostrarFiltrosModal = true;
   }
 
+  abrirSubFiltrosModal() {
+    this.mostrarSubFiltrosModal = true;
+  }
+
+  abrirSelectorUnidadesModal() {
+    this.mostrarSelectorUnidadesModal = true;
+  }
+
+  abrirSelectorLugarModal() {
+    this.mostrarSelectorLugarModal = true;
+  }
+
+  abrirSelectorEnemigoModal() {
+    this.actualizarOpcionesEnemigo();
+    this.cdr.markForCheck();
+    this.mostrarSelectorEnemigoModal = true;
+  }
+  abrirApoyosModal() {  
+    this.mostrarApoyosModal = true;
+  }
+  cerrarApoyosModal() {
+    this.mostrarApoyosModal = false;
+  }
   cerrarCoordenadasModal() {
     this.coordinateError = '';
     this.mostrarCoordenadasModal = false;
@@ -696,6 +1090,382 @@ export class EstadisticasComponent implements AfterViewInit, OnDestroy {
 
   cerrarFiltrosModal() {
     this.mostrarFiltrosModal = false;
+  }
+
+  cerrarSubFiltrosModal() {
+    this.mostrarSubFiltrosModal = false;
+    this.mostrarSelectorUnidadesModal = false;
+    this.mostrarSelectorLugarModal = false;
+    this.mostrarSelectorEnemigoModal = false;
+  }
+
+  cerrarSelectorUnidadesModal() {
+    this.mostrarSelectorUnidadesModal = false;
+  }
+
+  cerrarSelectorLugarModal() {
+    this.mostrarSelectorLugarModal = false;
+  }
+
+  cerrarSelectorEnemigoModal() {
+    this.mostrarSelectorEnemigoModal = false;
+  }
+    cerrarSelectorSubRegionesModal() {
+    this.mostrarSubregionesModal = false;
+  }
+  limpiarSubFiltros() {
+    this.filtrosForm.subFiltroRegional = '';
+    this.filtrosForm.subFiltroDivisionesFt = '';
+    this.filtrosForm.subFiltroDivisiones = '';
+    this.filtrosForm.subFiltroBrigadas = [];
+    this.filtrosForm.subFiltroUt = [];
+    this.filtrosForm.subFiltroDepartamento = [];
+    this.filtrosForm.subFiltroMunicipio = [];
+    this.filtrosForm.subFiltroEnemigo = [];
+    this.filtrosForm.subFiltroEnemigoEstructura = [];
+    this.filtrosForm.subFiltroEstado = '';
+    // Limpiar subregión y departamento seleccionado
+    this.subregionSeleccionada = null;
+    this.departamentoSeleccionado = null;
+    this.actualizarOpcionesSubFiltrosOperativos();
+    this.actualizarOpcionesLugar();
+    this.actualizarOpcionesEnemigo();
+  }
+
+  private cargarOpcionesSubFiltrosDesdeUsuario() {
+    const registros = this.unidadesTreeService.normalizarRegistros(this.auth.obtenerUnidadesUsuario());
+    const divisionesFt = registros.map((item) => item.agr_div);
+
+    this.opcionesSubFiltros.divisiones_ft = Array.from(new Set(divisionesFt)).sort((a, b) => a.localeCompare(b));
+    this.actualizarOpcionesSubFiltrosOperativos();
+    this.actualizarOpcionesLugar();
+    this.actualizarOpcionesEnemigo();
+  }
+
+  onSubFiltroDivisionFtChange() {
+    // Cuando cambia el padre raiz, se reinicia toda su rama hija.
+    this.filtrosForm.subFiltroDivisiones = '';
+    this.filtrosForm.subFiltroBrigadas = [];
+    this.filtrosForm.subFiltroUt = [];
+    this.actualizarOpcionesSubFiltrosOperativos();
+  }
+
+  onSubFiltroDivisionChange() {
+    // Cuando cambia la division, brigadas y UT deben recalcularse desde cero.
+    this.filtrosForm.subFiltroBrigadas = [];
+    this.filtrosForm.subFiltroUt = [];
+    this.actualizarOpcionesSubFiltrosOperativos();
+  }
+
+
+  onSubFiltroBrigadasChange() {
+    // Las UT y batallones siempre dependen del conjunto actual de brigadas seleccionadas.
+    this.filtrosForm.subFiltroUt = [];
+    this.filtrosForm.subFiltroBatallones = [];
+    this.actualizarOpcionesSubFiltrosOperativos();
+  }
+
+  onSubFiltroBatallonesChange() {
+    // Si necesitas lógica adicional al cambiar batallones, agrégala aquí.
+    // Por ahora, solo se actualiza el filtro.
+  }
+
+  onSubFiltroUtChange() {
+    this.actualizarOpcionesSubFiltrosOperativos();
+  }
+
+  onSubFiltroDepartamentoChange() {
+    this.filtrosForm.subFiltroMunicipio = [];
+    this.actualizarOpcionesLugar();
+  }
+
+  onSubFiltroMunicipioChange() {
+    this.actualizarOpcionesLugar();
+  }
+
+  onSubFiltroEnemigoChange() {
+    this.filtrosForm.subFiltroEnemigoEstructura = [];
+    this.actualizarOpcionesEnemigo();
+    this.sincronizarSeleccionEnemigo();
+  }
+
+  onSubFiltroEnemigoEstructuraChange() {
+    this.sincronizarSeleccionEnemigoEstructura();
+  }
+
+  private actualizarOpcionesSubFiltrosOperativos() {
+    // Cascada operativa:
+    // agr_div (Divisiones FT) -> division -> brigada[] -> batallon[] -> unidad[]
+    const registros = this.unidadesTreeService.normalizarRegistros(this.auth.obtenerUnidadesUsuario());
+    const divisionFtSeleccionada = this.filtrosForm.subFiltroDivisionesFt;
+
+    const registrosPorDivisionFt = divisionFtSeleccionada
+      ? registros.filter((item) => item.agr_div === divisionFtSeleccionada)
+      : [];
+
+    this.opcionesSubFiltros.divisiones = divisionFtSeleccionada
+      ? Array.from(new Set(registrosPorDivisionFt.map((item) => item.division))).sort((a, b) => a.localeCompare(b))
+      : [];
+
+    if (
+      this.filtrosForm.subFiltroDivisiones &&
+      !this.opcionesSubFiltros.divisiones.includes(this.filtrosForm.subFiltroDivisiones)
+    ) {
+      this.filtrosForm.subFiltroDivisiones = '';
+    }
+
+    const divisionSeleccionada = this.filtrosForm.subFiltroDivisiones;
+    const registrosPorDivision = divisionSeleccionada
+      ? registrosPorDivisionFt.filter((item) => item.division === divisionSeleccionada)
+      : [];
+
+    this.opcionesSubFiltros.brigadas = divisionSeleccionada
+      ? Array.from(new Set(registrosPorDivision.map((item) => item.brigada))).sort((a, b) => a.localeCompare(b))
+      : [];
+
+    // Mantiene solo las brigadas todavia validas dentro del padre seleccionado.
+    this.filtrosForm.subFiltroBrigadas = this.filtrosForm.subFiltroBrigadas
+      .filter((brigada) => this.opcionesSubFiltros.brigadas.includes(brigada));
+
+    const brigadasSeleccionadas = this.filtrosForm.subFiltroBrigadas;
+    const registrosFiltrados = brigadasSeleccionadas.length
+      ? registrosPorDivision.filter((item) => brigadasSeleccionadas.includes(item.brigada))
+      : [];
+
+    // Batallones se calcula como la union de unidades hijas de todas las brigadas seleccionadas.
+    this.opcionesSubFiltros.batallones = brigadasSeleccionadas.length
+      ? Array.from(new Set(registrosFiltrados.map((item) => item.unidad))).sort((a, b) => a.localeCompare(b))
+      : [];
+
+    // Mantiene solo los batallones que siguen perteneciendo a las brigadas activas.
+    this.filtrosForm.subFiltroBatallones = this.filtrosForm.subFiltroBatallones
+      .filter((batallon) => this.opcionesSubFiltros.batallones.includes(batallon));
+
+    // UT se calcula como la union de unidades hijas de todas las brigadas seleccionadas.
+    this.opcionesSubFiltros.uts = brigadasSeleccionadas.length
+      ? Array.from(new Set(registrosFiltrados.map((item) => item.unidad))).sort((a, b) => a.localeCompare(b))
+      : [];
+
+    // Mantiene solo las UT que siguen perteneciendo a las brigadas activas.
+    this.filtrosForm.subFiltroUt = this.filtrosForm.subFiltroUt
+      .filter((ut) => this.opcionesSubFiltros.uts.includes(ut));
+  }
+
+  private actualizarOpcionesLugar() {
+    // Cascada geografica:
+    // dpto[] -> mpio[]
+    const registros = this.unidadesTreeService.normalizarRegistros(this.auth.obtenerUnidadesUsuario());
+
+    this.opcionesSubFiltros.departamentos = Array.from(
+      new Set(registros.map((item) => item.dpto))
+    ).sort((a, b) => a.localeCompare(b));
+
+    this.filtrosForm.subFiltroDepartamento = this.filtrosForm.subFiltroDepartamento
+      .filter((dpto) => this.opcionesSubFiltros.departamentos.includes(dpto));
+
+    const departamentosSeleccionados = this.filtrosForm.subFiltroDepartamento;
+    const registrosPorDepartamento = departamentosSeleccionados.length
+      ? registros.filter((item) => departamentosSeleccionados.includes(item.dpto))
+      : [];
+
+    this.opcionesSubFiltros.municipios = departamentosSeleccionados.length
+      ? Array.from(new Set(registrosPorDepartamento.map((item) => item.mpio))).sort((a, b) => a.localeCompare(b))
+      : [];
+
+    this.filtrosForm.subFiltroMunicipio = this.filtrosForm.subFiltroMunicipio
+      .filter((mpio) => this.opcionesSubFiltros.municipios.includes(mpio));
+  }
+
+  private actualizarOpcionesEnemigo() {
+    // Cascada operativa:
+    // enemigo[] -> enemigo_estructura[]
+    const enemigosUsuario = this.auth.obtenerEnemigoUsuario();
+    this.mapaEnemigoEstructura = this.unidadesTreeService.obtenerMapaEnemigoEstructura(enemigosUsuario);
+
+    this.opcionesSubFiltros.enemigos = Object.keys(this.mapaEnemigoEstructura).sort((a, b) => a.localeCompare(b));
+
+    this.filtrosForm.subFiltroEnemigo = this.filtrosForm.subFiltroEnemigo
+      .filter((enemigo) => this.opcionesSubFiltros.enemigos.includes(enemigo));
+
+    const enemigosSeleccionados = this.filtrosForm.subFiltroEnemigo;
+    const estructuras = enemigosSeleccionados.length
+      ? enemigosSeleccionados.flatMap((enemigo) => this.mapaEnemigoEstructura[enemigo] || [])
+      : [];
+
+    this.opcionesSubFiltros.enemigosEstructura = Array.from(new Set(estructuras))
+      .sort((a, b) => a.localeCompare(b));
+
+    this.sincronizarSeleccionEnemigo();
+    this.sincronizarSeleccionEnemigoEstructura();
+  }
+
+  private sincronizarSeleccionEnemigo() {
+    this.filtrosForm.subFiltroEnemigo = this.filtrosForm.subFiltroEnemigo
+      .filter((enemigo) => this.opcionesSubFiltros.enemigos.includes(enemigo));
+  }
+
+  private sincronizarSeleccionEnemigoEstructura() {
+    this.filtrosForm.subFiltroEnemigoEstructura = this.filtrosForm.subFiltroEnemigoEstructura
+      .filter((estructura) => this.opcionesSubFiltros.enemigosEstructura.includes(estructura));
+  }
+
+  private obtenerCatalogoPlanoDesdeStorage(storageKeys: string[], fieldAliases: string[]) {
+    const valores = new Set<string>();
+
+    for (const storageKey of storageKeys) {
+      const raw = localStorage.getItem(storageKey);
+      if (!raw) {
+        continue;
+      }
+
+      try {
+        const parsed = JSON.parse(raw);
+        this.recolectarValoresCatalogo(parsed, fieldAliases, valores);
+      } catch {
+        // Ignora payloads no validos y continua con la siguiente llave.
+      }
+    }
+
+    return Array.from(valores).sort((a, b) => a.localeCompare(b));
+  }
+
+  private extraerValoresCatalogo(source: unknown, fieldAliases: string[]) {
+    const valores = new Set<string>();
+    this.recolectarValoresCatalogo(source, fieldAliases, valores);
+    return Array.from(valores).sort((a, b) => a.localeCompare(b));
+  }
+
+  private construirOpcionesCatalogo(sources: string[][]) {
+    const valores = new Set<string>();
+
+    for (const source of sources) {
+      for (const item of source) {
+        const value = typeof item === 'string' ? item.trim() : '';
+        if (value) {
+          valores.add(value);
+        }
+      }
+    }
+
+    return Array.from(valores).sort((a, b) => a.localeCompare(b));
+  }
+
+  private recolectarValoresCatalogo(source: unknown, fieldAliases: string[], output: Set<string>, visited = new Set<unknown>()) {
+    if (!source || visited.has(source)) {
+      return;
+    }
+
+    if (Array.isArray(source)) {
+      visited.add(source);
+      for (const item of source) {
+        this.recolectarValoresCatalogo(item, fieldAliases, output, visited);
+      }
+      return;
+    }
+
+    if (typeof source !== 'object') {
+      return;
+    }
+
+    visited.add(source);
+    const registro = source as Record<string, unknown>;
+
+    for (const alias of fieldAliases) {
+      const value = typeof registro[alias] === 'string'
+        ? registro[alias].trim()
+        : '';
+
+      if (value) {
+        output.add(value);
+        break;
+      }
+    }
+
+    for (const value of Object.values(registro)) {
+      this.recolectarValoresCatalogo(value, fieldAliases, output, visited);
+    }
+  }
+
+  aplicarSubFiltros() {
+    this.dashboardStatusMsg = 'Sub filtros aplicados. Ya puedes consultar la informacion general.';
+    this.mostrarSelectorUnidadesModal = false;
+    this.mostrarSelectorLugarModal = false;
+    this.mostrarSelectorEnemigoModal = false;
+    this.mostrarSubFiltrosModal = false;
+    this.cdr.markForCheck();
+  }
+
+  getResumenJerarquiaUnidades(): string[] {
+    const resumen: string[] = [];
+
+    if (this.filtrosForm.subFiltroDivisionesFt) {
+      resumen.push(`Division: ${this.filtrosForm.subFiltroDivisionesFt}`);
+    }
+
+    if (this.filtrosForm.subFiltroDivisiones) {
+      resumen.push(`Division FT: ${this.filtrosForm.subFiltroDivisiones}`);
+    }
+
+    for (const brigada of this.filtrosForm.subFiltroBrigadas) {
+      resumen.push(`Brigada: ${brigada}`);
+    }
+
+    for (const ut of this.filtrosForm.subFiltroUt) {
+      resumen.push(`UT: ${ut}`);
+    }
+
+    return resumen;
+  }
+
+  getResumenLugar(): string[] {
+    const resumen: string[] = [];
+
+    for (const dpto of this.filtrosForm.subFiltroDepartamento) {
+      resumen.push(`Departamento: ${dpto}`);
+    }
+
+    for (const mpio of this.filtrosForm.subFiltroMunicipio) {
+      resumen.push(`Municipio: ${mpio}`);
+    }
+
+    return resumen;
+  }
+
+  getResumenEnemigo(): string[] {
+    const resumen: string[] = [];
+
+    for (const enemigo of this.filtrosForm.subFiltroEnemigo) {
+      resumen.push(`Enemigo: ${enemigo}`);
+    }
+
+    for (const estructura of this.filtrosForm.subFiltroEnemigoEstructura) {
+      resumen.push(`Estructura: ${estructura}`);
+    }
+
+    return resumen;
+  }
+
+  getResumenSubFiltrosAplicados(): string[] {
+    const resumen = [
+      ...this.getResumenJerarquiaUnidades(),
+      ...this.getResumenLugar(),
+      ...this.getResumenEnemigo()
+    ];
+
+    // Agregar subregión seleccionada si existe
+    if (this.subregionSeleccionada && this.subregionSeleccionada.nombre) {
+      resumen.unshift(`Subregión: ${this.subregionSeleccionada.nombre}`);
+    }
+
+    if (this.filtrosForm.subFiltroEstado) {
+      resumen.push(`Estado: ${this.filtrosForm.subFiltroEstado}`);
+    }
+
+    return resumen;
+  }
+
+  tieneSubFiltrosActivos(): boolean {
+    return this.getResumenSubFiltrosAplicados().length > 0;
   }
 
   cambiarSistemaCoordenadas(system: CoordinateSystem) {
@@ -1180,42 +1950,49 @@ export class EstadisticasComponent implements AfterViewInit, OnDestroy {
   private renderMarkers() {
     if (!this.map) return;
     this.markerLayer.clearLayers();
-    const puntos = this.getPuntosActivos();
+    const puntos = this.prepararPuntosParaMapa();
     const bounds: L.LatLngTuple[] = [];
     for (const punto of puntos) {
-      const latLng: L.LatLngTuple = [punto.latitud, punto.longitud];
+      const latLng: L.LatLngTuple = [punto.latitudRender, punto.longitudRender];
       bounds.push(latLng);
-      const tipo = 'tipo' in punto ? String(punto.tipo) : this.tipoSeleccionado || 'Tipo';
-      const color = this.getColorTipo(tipo);
-      const marker = L.circleMarker(latLng, {
-        radius: 12,
-        color,
-        fillColor: color,
-        fillOpacity: 0.85,
-        weight: 2
-      })
+      const tipo = punto.tipo || this.tipoSeleccionado || 'Tipo';
+      const color = this.getColorTipo(punto.tipoKey);
+
+      // Usar un icono de imagen simple (círculo SVG como data URL)
+      const svg = `<svg xmlns='http://www.w3.org/2000/svg' width='32' height='32'><circle cx='16' cy='16' r='10' fill='${color}' stroke='#333' stroke-width='2'/></svg>`;
+      const iconUrl = 'data:image/svg+xml;base64,' + btoa(svg);
+      const icon = L.icon({
+        iconUrl,
+        iconSize: [24, 24],
+        iconAnchor: [12, 12],
+        popupAnchor: [0, -10]
+      });
+
+      const marker = L.marker(latLng, { icon })
         .bindPopup(
           `<strong>${this.escapeHtml(tipo)}</strong><br>
           <b>Cantidad:</b> ${punto.cantidad}<br>
+          <b>Registros agrupados:</b> ${punto.cantidadRegistros}<br>
           <b>Ubicación:</b> ${this.escapeHtml(punto.ubicacion)}<br>
           <b>División:</b> ${this.escapeHtml(punto.division)}`,
           { closeButton: false, offset: [0, -8] }
         );
 
-      (marker as L.CircleMarker & { feature?: Record<string, unknown> }).feature = {
+      (marker as L.Marker & { feature?: Record<string, unknown> }).feature = {
         type: 'Feature',
         properties: {
           label: tipo,
           tipo,
           cantidad: punto.cantidad,
+          cantidadRegistros: punto.cantidadRegistros,
           ubicacion: punto.ubicacion,
           division: punto.division,
-          kmlStyleId: this.getTipoStyleId(tipo),
+          kmlStyleId: this.getTipoStyleId(punto.tipoKey),
           shapeType: 'json-marker'
         },
         geometry: {
           type: 'Point',
-          coordinates: [punto.longitud, punto.latitud]
+          coordinates: [punto.longitudRender, punto.latitudRender]
         }
       };
 
@@ -1223,30 +2000,344 @@ export class EstadisticasComponent implements AfterViewInit, OnDestroy {
     }
     if (bounds.length) {
       this.map.fitBounds(bounds, { padding: [40, 40], maxZoom: 7 });
+      return;
     }
-  }
 
-  // --- Datos de ejemplo ---
-  getEventosEjemplo(): Evento[] {
-    return [
-      { id: 1, categoria: 'Afectación al enemigo', tipo: 'Capturas', cantidad_total: 12, puntos: [ { latitud: 7.1193, longitud: -73.1227, cantidad: 3, ubicacion: 'Antioquia', division: 'DIV07' }, { latitud: 6.8000, longitud: -73.2000, cantidad: 4, ubicacion: 'Santander', division: 'DIV02' }, { latitud: 7.2000, longitud: -72.9000, cantidad: 5, ubicacion: 'Norte de Santander', division: 'DIV30' } ] },
-      { id: 2, categoria: 'Afectación al enemigo', tipo: 'Presentaciones', cantidad_total: 8, puntos: [ { latitud: 4.1420, longitud: -73.6266, cantidad: 3, ubicacion: 'Meta', division: 'DIV04' }, { latitud: 2.5700, longitud: -72.6400, cantidad: 5, ubicacion: 'Guaviare', division: 'DIV22' } ] },
-      { id: 3, categoria: 'Afectación al enemigo', tipo: 'Sometimientos', cantidad_total: 6, puntos: [ { latitud: 1.2892, longitud: -77.3579, cantidad: 2, ubicacion: 'Nariño', division: 'DIV03' }, { latitud: 2.4448, longitud: -76.6147, cantidad: 4, ubicacion: 'Cauca', division: 'DIV08' } ] },
-      { id: 4, categoria: 'Afectación al narcotráfico', tipo: 'Laboratorios destruidos', cantidad_total: 5, puntos: [ { latitud: 0.4350, longitud: -76.5270, cantidad: 2, ubicacion: 'Putumayo', division: 'DIV06' }, { latitud: 1.6144, longitud: -75.6062, cantidad: 3, ubicacion: 'Caquetá', division: 'DIV12' } ] },
-      { id: 5, categoria: 'Afectación al narcotráfico', tipo: 'Incautación de cocaína', cantidad_total: 220, puntos: [ { latitud: 3.4516, longitud: -76.5320, cantidad: 120, ubicacion: 'Valle del Cauca', division: 'DIV03' }, { latitud: 8.0847, longitud: -72.8000, cantidad: 100, ubicacion: 'Norte de Santander', division: 'DIV30' } ] },
-      { id: 6, categoria: 'Afectación al narcotráfico', tipo: 'Incautación de marihuana', cantidad_total: 180, puntos: [ { latitud: 2.4448, longitud: -76.6147, cantidad: 80, ubicacion: 'Cauca', division: 'DIV08' }, { latitud: 3.8000, longitud: -75.9000, cantidad: 100, ubicacion: 'Huila', division: 'DIV05' } ] },
-      { id: 7, categoria: 'Afectación minería ilegal', tipo: 'Capturas', cantidad_total: 9, puntos: [ { latitud: 5.6947, longitud: -76.6610, cantidad: 5, ubicacion: 'Chocó', division: 'DIV15' }, { latitud: 6.2442, longitud: -75.5812, cantidad: 4, ubicacion: 'Antioquia', division: 'DIV07' } ] },
-      { id: 8, categoria: 'Afectación minería ilegal', tipo: 'UPM (Unidades de Producción Minera)', cantidad_total: 7, puntos: [ { latitud: 8.6704, longitud: -74.0300, cantidad: 3, ubicacion: 'Bolívar', division: 'DIV01' }, { latitud: 7.5000, longitud: -74.5000, cantidad: 4, ubicacion: 'Córdoba', division: 'DIV11' } ] },
-      { id: 9, categoria: 'Afectación minería ilegal', tipo: 'Motores incautados', cantidad_total: 11, puntos: [ { latitud: 5.6900, longitud: -76.6500, cantidad: 6, ubicacion: 'Chocó', division: 'DIV15' }, { latitud: 6.5000, longitud: -74.0000, cantidad: 5, ubicacion: 'Antioquia', division: 'DIV07' } ] },
-      { id: 10, categoria: 'Afectación propias tropas', tipo: 'Heridos', cantidad_total: 5, puntos: [ { latitud: 7.0847, longitud: -70.7591, cantidad: 3, ubicacion: 'Arauca', division: 'DIV18' }, { latitud: 2.5729, longitud: -72.6459, cantidad: 2, ubicacion: 'Guaviare', division: 'DIV22' } ] },
-      { id: 11, categoria: 'Afectación propias tropas', tipo: 'Asesinados', cantidad_total: 3, puntos: [ { latitud: 1.5000, longitud: -75.5000, cantidad: 1, ubicacion: 'Caquetá', division: 'DIV12' }, { latitud: 7.0000, longitud: -70.7000, cantidad: 2, ubicacion: 'Arauca', division: 'DIV18' } ] }
-    ];
+    this.map.setView([4.5709, -74.2973], 5);
   }
+  //fliltar dashboard
+
+
+  // --- Datos de ejemplo eliminados: ahora los datos vienen del backend --- 
 
 
 
   toggleSidebar() {
     this.sidebarVisible = !this.sidebarVisible;
     setTimeout(() => this.map?.invalidateSize(), 0);
+  }
+
+  get puedeVerEstadisticasCrud() {
+    return !!this.permisoEstadisticas?.puede_ver;
+  }
+
+  get puedeCrearEstadisticasCrud() {
+    return !!this.permisoEstadisticas?.puede_crear;
+  }
+
+  get puedeEditarEstadisticasCrud() {
+    return !!this.permisoEstadisticas?.puede_editar;
+  }
+
+  get puedeEliminarEstadisticasCrud() {
+    return !!this.permisoEstadisticas?.puede_eliminar;
+  }
+
+
+  dashboardErrorMsg = '';
+  actualizar_dashboard(): void {
+    const rangoFechas = this.obtenerRangoFechasDashboard();
+
+    if (!rangoFechas) {
+      return;
+    }
+
+    console.log(this.filtrosForm);
+    console.log(this.filtrosForm.subFiltroDivisiones);
+    const formData = new FormData();
+    formData.append('fecha_inicio', rangoFechas.fechaInicio);
+    formData.append('fecha_fin', rangoFechas.fechaFin);
+    formData.append(
+      'subFiltroDivisionesFt',
+      JSON.stringify(this.filtrosForm.subFiltroDivisionesFt || '')
+    );
+
+    formData.append(
+      'subFiltroDivisiones',
+      JSON.stringify(this.filtrosForm.subFiltroDivisiones || '')
+    );
+
+    formData.append(
+      'subFiltroBrigadas',
+      JSON.stringify(this.filtrosForm.subFiltroBrigadas || '')
+    );
+
+    formData.append(
+      'subFiltroBatallones',
+      JSON.stringify(this.filtrosForm.subFiltroBatallones || '')
+    );
+
+    formData.append(
+      'subFiltroDepartamento',
+      JSON.stringify(this.filtrosForm.subFiltroDepartamento || '')
+    );
+
+    formData.append(
+      'subFiltroMunicipio',
+      JSON.stringify(this.filtrosForm.subFiltroMunicipio || '')
+    );
+
+    formData.append(
+      'subregion',
+      JSON.stringify(this.subregionSeleccionada || [])
+    );
+    formData.append(
+      'enemigo',
+      JSON.stringify(this.filtrosForm.subFiltroEnemigo || [])
+    );
+        formData.append(
+      'enemigo_estructura',
+      JSON.stringify(this.filtrosForm.subFiltroEnemigoEstructura || [])
+    );
+    // Aquí puedes agregar más filtros en el futuro:
+    // formData.append('otro_filtro', this.filtrosForm.otroFiltro);
+
+    formData.append(
+      'subFiltroEnemigo',
+      JSON.stringify(this.filtrosForm.subFiltroEnemigo || '')
+    );
+
+    formData.append(
+      'subFiltroEnemigoEstructura',
+      JSON.stringify(this.filtrosForm.subFiltroEnemigoEstructura || '')
+    );
+
+    this.cargandoDashboard = true;
+    this.dashboardStatusMsg = 'Actualizando dashboard...';
+
+    this.http.post<any>(`${this.api}`, formData).pipe(
+      catchError(error => {
+        console.error('Error al enviar fechas:', error);
+        return throwError(() => error);
+      })
+    ).subscribe({
+      next: (resp) => {
+        this.aplicarRespuestaDashboard(resp);
+        this.dashboardStatusMsg = this.construirMensajeDashboard();
+        this.mostrarFiltrosModal = false;
+        this.cargandoDashboard = false;
+      },
+      error: (err) => {
+        this.dashboardStatusMsg = 'No fue posible actualizar el dashboard.';
+        this.cargandoDashboard = false;
+      }
+    });
+  }
+
+  private aplicarRespuestaDashboard(resp: any) {
+    const categoriaActual = this.categoriaSeleccionada;
+    const tipoActual = this.tipoSeleccionado;
+
+    this.eventos = this.normalizarEventos(resp);
+    console.log('Dashboard normalizado:', this.getDashboardResumen());
+    this.reconstruirColeccionesDashboard();
+
+    this.categoriaSeleccionada = categoriaActual && this.categorias.includes(categoriaActual)
+      ? categoriaActual
+      : (this.categorias[0] || null);
+
+    const tiposActivos = this.categoriaSeleccionada
+      ? this.tiposPorCategoria[this.categoriaSeleccionada] || []
+      : [];
+
+    this.tipoSeleccionado = tipoActual === this.allTypesToken
+      ? this.allTypesToken
+      : tiposActivos.some((tipo) => tipo.key === tipoActual)
+        ? tipoActual
+        : this.allTypesToken;
+
+    setTimeout(() => {
+      this.renderMarkers();
+      this.scheduleMapResize(0);
+      this.cdr.markForCheck();
+    }, 0);
+  }
+
+  private obtenerRangoFechasDashboard() {
+    const fechaInicio = this.filtrosForm.lapsoInicialA;
+    const fechaFin = this.filtrosForm.lapsoInicialB;
+
+    if (!fechaInicio || !fechaFin) {
+      this.dashboardErrorMsg = 'Debes seleccionar ambas fechas.';
+      setTimeout(() => {
+        const inicioInput = document.querySelector('input[name="lapsoInicialA"]') as HTMLInputElement;
+        const finInput = document.querySelector('input[name="lapsoInicialB"]') as HTMLInputElement;
+        if (inicioInput && !fechaInicio) inicioInput.classList.add('input-error');
+        if (finInput && !fechaFin) finInput.classList.add('input-error');
+      }, 0);
+      alert('Debes seleccionar ambas fechas.');
+      return null;
+    }
+
+    this.dashboardErrorMsg = '';
+    const inicioInput = document.querySelector('input[name="lapsoInicialA"]') as HTMLInputElement;
+    const finInput = document.querySelector('input[name="lapsoInicialB"]') as HTMLInputElement;
+    if (inicioInput) inicioInput.classList.remove('input-error');
+    if (finInput) finInput.classList.remove('input-error');
+
+    return { fechaInicio, fechaFin };
+  }
+
+  private reconstruirColeccionesDashboard() {
+    this.categorias = Array.from(new Set(this.eventos.map((evento) => evento.categoria)));
+    this.tiposPorCategoria = {};
+    this.puntosPorTipo = {};
+    this.coloresPorTipo = {};
+
+    let colorIdx = 0;
+    for (const categoria of this.categorias) {
+      const tipos = this.eventos
+        .filter((evento) => evento.categoria === categoria)
+        .map((evento) => ({
+          key: this.buildTipoKey(evento.categoria, evento.tipo),
+          tipo: evento.tipo,
+          total: evento.cantidad_total
+        }));
+
+      this.tiposPorCategoria[categoria] = tipos;
+
+      for (const tipo of tipos) {
+        const evento = this.eventos.find((item) => this.buildTipoKey(item.categoria, item.tipo) === tipo.key);
+        this.puntosPorTipo[tipo.key] = evento?.puntos || [];
+        if (!this.coloresPorTipo[tipo.key]) {
+          this.coloresPorTipo[tipo.key] = this.palette[colorIdx % this.palette.length];
+          colorIdx++;
+        }
+      }
+    }
+  }
+
+  private buildTipoKey(categoria: string, tipo: string) {
+    return `${categoria}__${tipo}`;
+  }
+
+  private getDashboardResumen() {
+    return {
+      eventos: this.eventos.length,
+      puntos: this.eventos.reduce((total, evento) => total + evento.puntos.length, 0)
+    };
+  }
+
+  private construirMensajeDashboard() {
+    const resumen = this.getDashboardResumen();
+    return resumen.eventos
+      ? `Dashboard actualizado. ${resumen.eventos} tipos y ${resumen.puntos} puntos cargados.`
+      : 'La consulta no devolvio resultados.';
+  }
+
+  private normalizarEventos(eventosRaw: any): Evento[] {
+    let eventosLista =
+      eventosRaw?.eventos?.eventos ??
+      eventosRaw?.eventos ??
+      eventosRaw?.data?.eventos?.eventos ??
+      eventosRaw?.data?.eventos ??
+      eventosRaw;
+
+    if (!Array.isArray(eventosLista)) {
+      if (eventosLista && typeof eventosLista === 'object') {
+        const nestedEventos =
+          (eventosLista as any)?.eventos?.eventos ??
+          (eventosLista as any)?.eventos;
+
+        eventosLista = Array.isArray(nestedEventos)
+          ? nestedEventos
+          : Object.values(eventosLista);
+      } else {
+        eventosLista = [];
+      }
+    }
+
+    return eventosLista.map((ev: any, index: number) => {
+      let puntos: any[] = [];
+
+      if (Array.isArray(ev.puntos)) {
+        for (const division of ev.puntos) {
+          if (Array.isArray(division.puntos)) {
+            puntos = puntos.concat(
+              division.puntos
+                .map((punto: any) => ({
+                  ...punto,
+                  latitud: typeof punto.latitud === 'string' ? parseFloat(punto.latitud) : punto.latitud,
+                  longitud: typeof punto.longitud === 'string' ? parseFloat(punto.longitud) : punto.longitud,
+                  cantidad: typeof punto.cantidad === 'string' ? parseFloat(punto.cantidad) : punto.cantidad,
+                  ubicacion: punto.ubicacion || division.ubicacion || 'Sin ubicacion',
+                  division: punto.division || division.division || 'Sin division'
+                }))
+                .filter((punto: any) => Number.isFinite(punto.latitud) && Number.isFinite(punto.longitud))
+            );
+          }
+        }
+      }
+
+      return {
+        id: typeof ev.id === 'number' ? ev.id : index + 1,
+        categoria: ev.categoria || 'Sin categoria',
+        tipo: ev.tipo || 'Sin tipo',
+        cantidad_total: typeof ev.cantidad_total === 'string'
+          ? parseFloat(ev.cantidad_total)
+          : Number(ev.cantidad_total ?? puntos.reduce((acc, punto) => acc + (Number(punto.cantidad) || 0), 0)),
+        puntos
+      };
+    });
+  }
+
+  private prepararPuntosParaMapa(): MapaPunto[] {
+    const puntosActivos = this.getPuntosActivos();
+    const puntos: MapaPunto[] = puntosActivos.map((punto) => ({
+      latitud: Number(punto.latitud),
+      longitud: Number(punto.longitud),
+      cantidad: Number(punto.cantidad) || 0,
+      ubicacion: punto.ubicacion,
+      division: punto.division,
+      tipo: String((punto as any).tipo || this.tipoSeleccionado || 'Tipo'),
+      tipoKey: String((punto as any).tipoKey || this.tipoSeleccionado || 'tipo'),
+      cantidadRegistros: 1,
+      latitudRender: Number(punto.latitud),
+      longitudRender: Number(punto.longitud)
+    }));
+    const gruposPorCoordenada = new Map<string, MapaPunto[]>();
+
+    for (const punto of puntos) {
+      const key = `${punto.latitud.toFixed(6)}|${punto.longitud.toFixed(6)}`;
+      const grupo = gruposPorCoordenada.get(key) || [];
+      grupo.push(punto);
+      gruposPorCoordenada.set(key, grupo);
+    }
+
+    gruposPorCoordenada.forEach((grupo) => {
+      if (grupo.length === 1) {
+        return;
+      }
+
+      grupo.forEach((punto, index) => {
+        const angulo = (Math.PI * 2 * index) / grupo.length;
+        // Radio pequeño para evitar que los puntos se desplacen demasiado lejos
+        const radio = 0.0003;
+        punto.latitudRender = punto.latitud + (Math.sin(angulo) * radio);
+        punto.longitudRender = punto.longitud + (Math.cos(angulo) * radio);
+      });
+    });
+
+    return puntos;
+  }
+
+  /**
+   * Actualiza la posición del tooltip en el DOM usando variables CSS.
+   * Se usa en el template con (mousemove)="$event".
+   */
+  public setTooltipPosition(event: MouseEvent) {
+    const x = event.clientX;
+    const y = event.clientY;
+    document.documentElement.style.setProperty('--tooltip-mouse-x', x + 'px');
+    document.documentElement.style.setProperty('--tooltip-mouse-y', y + 'px');
+  }
+
+  /**
+   * Restaura la posición del tooltip a su valor por defecto.
+   * Se usa en el template con (mouseleave).
+   */
+  public clearTooltipPosition() {
+    document.documentElement.style.setProperty('--tooltip-mouse-x', '50vw');
+    document.documentElement.style.setProperty('--tooltip-mouse-y', '0px');
   }
 }

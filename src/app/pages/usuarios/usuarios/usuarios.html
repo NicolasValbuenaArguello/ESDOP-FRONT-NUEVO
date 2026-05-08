@@ -10,11 +10,11 @@
       <div class="usuarios-summary">
         <div class="summary-card">
           <span class="summary-label">Registros</span>
-          <strong class="summary-value">{{usuarios.length}}</strong>
+          <strong class="summary-value">{{puedeVerListadoUsuarios ? usuarios.length : 0}}</strong>
         </div>
         <div class="summary-card">
           <span class="summary-label">Visibles</span>
-          <strong class="summary-value">{{usuariosFiltrados.length}}</strong>
+          <strong class="summary-value">{{puedeVerListadoUsuarios ? usuariosFiltrados.length : 0}}</strong>
         </div>
       </div>
     </section>
@@ -26,7 +26,7 @@
           <p class="usuarios-section-sub">Consulta, filtra y edita usuarios activos desde una sola vista.</p>
         </div>
         <div class="usuarios-actions">
-          <label class="search-field" for="usuarios-search">
+          <label class="search-field" for="usuarios-search" *ngIf="puedeVerListadoUsuarios">
             <span class="search-label">Buscar</span>
             <input
               id="usuarios-search"
@@ -37,7 +37,7 @@
               placeholder="Nombre o usuario"
             >
           </label>
-          <button class="btn primary" (click)="abrirModal()">Nuevo usuario</button>
+          <button class="btn primary" *ngIf="puedeCrearUsuarios" (click)="abrirModal()">Nuevo usuario</button>
         </div>
       </div>
 
@@ -46,7 +46,7 @@
 
       <div *ngIf="loading" class="loader"></div>
 
-      <div class="table-shell" *ngIf="!loading">
+      <div class="table-shell" *ngIf="!loading && puedeVerListadoUsuarios">
         <table class="usuarios-table">
           <thead>
             <tr>
@@ -82,9 +82,9 @@
               </td>
               <td>
                 <div class="table-actions">
-                  <button class="icon-btn" (click)="abrirModal(u)" title="Editar">Editar</button>
-                  <button class="icon-btn" (click)="abrirPermisos(u)" title="Permisos">Permisos</button>
-                  <button class="icon-btn danger" (click)="confirmarEliminar(u)" title="Eliminar">Eliminar</button>
+                  <button class="icon-btn" *ngIf="puedeEditarUsuarios" (click)="abrirModal(u)" title="Editar">Editar</button>
+                  <button class="icon-btn" *ngIf="puedeGestionarPermisosUsuarios" (click)="abrirPermisos(u)" title="Permisos">Permisos</button>
+                  <button class="icon-btn danger" *ngIf="puedeEliminarUsuarios" (click)="confirmarEliminar(u)" title="Eliminar">Eliminar</button>
                 </div>
               </td>
             </tr>
@@ -92,8 +92,12 @@
         </table>
       </div>
 
-      <div *ngIf="!usuariosFiltrados.length && !loading" class="empty-state">
+      <div *ngIf="!usuariosFiltrados.length && !loading && puedeVerListadoUsuarios" class="empty-state">
         <span>No hay usuarios para mostrar con el filtro actual.</span>
+      </div>
+
+      <div *ngIf="!puedeVerListadoUsuarios && !loading" class="empty-state">
+        <span>No tienes permiso para ver el listado de usuarios.</span>
       </div>
     </section>
   </main>
@@ -142,7 +146,7 @@
         <div class="input-group">
           <label>Permisos por pagina</label>
           <p class="form-section-subtitle">Abre una ventana emergente para definir accesos por modulo.</p>
-          <button class="btn" type="button" (click)="abrirPermisosModal()">Configurar permisos</button>
+          <button class="btn" *ngIf="puedeGestionarPermisosUsuarios" type="button" (click)="abrirPermisosModal()">Configurar permisos</button>
         </div>
       </div>
       <div class="form-col">

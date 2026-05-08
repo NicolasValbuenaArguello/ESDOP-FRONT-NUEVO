@@ -1,8 +1,10 @@
 import { ChangeDetectionStrategy, ChangeDetectorRef, Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { Router } from '@angular/router';
 import { SidebarComponent } from '../../../shared/sidebar/sidebar.component';
 import { Grado, Pagina, PermisoPagina, Rol, UsuariosService, Usuario } from './usuarios.service';
+import { AuthService, PermisoAcceso } from '../../../services/auth';
 
 @Component({
   selector: 'app-usuarios',
@@ -13,6 +15,10 @@ import { Grado, Pagina, PermisoPagina, Rol, UsuariosService, Usuario } from './u
   changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class UsuariosComponent implements OnInit {
+  // Permisos CRUD de esta vista:
+  // - `/usuarios/nuevos` gobierna alta/creacion
+  // - `/usuarios/listado` gobierna ver listado, editar y eliminar
+  // Las paginas visibles siguen dependiendo del sidebar + guard.
 
   usuarios: Usuario[] = [];
   usuariosFiltrados: Usuario[] = [];
@@ -29,6 +35,8 @@ export class UsuariosComponent implements OnInit {
   grados: Grado[] = [];
   rolesDisponibles: Rol[] = [];
   paginasDisponibles: Pagina[] = [];
+  permisoNuevoUsuario: PermisoAcceso | null = null;
+  permisoListadoUsuarios: PermisoAcceso | null = null;
   permisosPaginas: Array<{
     pagina: string;
     ver: boolean;
@@ -39,14 +47,60 @@ export class UsuariosComponent implements OnInit {
 
   constructor(
     private api: UsuariosService,
+    private auth: AuthService,
+    private router: Router,
     private cdr: ChangeDetectorRef
   ) {}
 
   ngOnInit() {
-    this.cargarUsuarios();
+    this.cargarPermisosVista();
+
+    if (this.puedeVerListadoUsuarios) {
+      this.cargarUsuarios();
+    }
+
     this.cargarGrados();
     this.cargarRoles();
     this.cargarPaginas();
+
+    if (this.esRutaNuevoUsuario && this.puedeCrearUsuarios) {
+      this.abrirModal();
+    }
+  }
+
+  get esRutaNuevoUsuario() {
+    return this.router.url.startsWith('/usuarios/nuevos');
+  }
+
+  get esRutaListadoUsuarios() {
+    return this.router.url.startsWith('/usuarios/listado');
+  }
+
+  get puedeCrearUsuarios() {
+    return !!this.permisoNuevoUsuario?.puede_crear;
+  }
+
+  get puedeVerListadoUsuarios() {
+    return !!this.permisoListadoUsuarios?.puede_ver;
+  }
+
+  get puedeEditarUsuarios() {
+    return !!this.permisoListadoUsuarios?.puede_editar;
+  }
+
+  get puedeEliminarUsuarios() {
+    return !!this.permisoListadoUsuarios?.puede_eliminar;
+  }
+
+  get puedeGestionarPermisosUsuarios() {
+    return this.puedeCrearUsuarios || this.puedeEditarUsuarios;
+  }
+
+  private cargarPermisosVista() {
+    // Aqui se leen los permisos ya normalizados por AuthService
+    // para decidir que acciones CRUD se habilitan en esta pantalla.
+    this.permisoNuevoUsuario = this.auth.obtenerPermisoRuta('/usuarios/nuevos');
+    this.permisoListadoUsuarios = this.auth.obtenerPermisoRuta('/usuarios/listado');
   }
 
   private obtenerGradoId(usuario?: Usuario) {
@@ -204,6 +258,18 @@ export class UsuariosComponent implements OnInit {
   }
 
   abrirModal(u?: Usuario) {
+    if (!u && !this.puedeCrearUsuarios) {
+      this.error = 'No tienes permiso para crear usuarios.';
+      this.cdr.markForCheck();
+      return;
+    }
+
+    if (u && !this.puedeEditarUsuarios) {
+      this.error = 'No tienes permiso para editar usuarios.';
+      this.cdr.markForCheck();
+      return;
+    }
+
     this.error = '';
     this.success = '';
     const usuarioNormalizado = u ? this.normalizarUsuario(u) : undefined;
@@ -226,6 +292,12 @@ export class UsuariosComponent implements OnInit {
   }
 
   abrirPermisosModal() {
+    if (!this.puedeGestionarPermisosUsuarios) {
+      this.error = 'No tienes permiso para gestionar permisos de usuarios.';
+      this.cdr.markForCheck();
+      return;
+    }
+
     this.mostrarPermisos = true;
     this.cdr.markForCheck();
   }
@@ -236,6 +308,18 @@ export class UsuariosComponent implements OnInit {
   }
 
   guardarUsuario() {
+    if (this.usuarioForm.id && !this.puedeEditarUsuarios) {
+      this.error = 'No tienes permiso para actualizar usuarios.';
+      this.cdr.markForCheck();
+      return;
+    }
+
+    if (!this.usuarioForm.id && !this.puedeCrearUsuarios) {
+      this.error = 'No tienes permiso para crear usuarios.';
+      this.cdr.markForCheck();
+      return;
+    }
+
     this.loading = true;
 
     const permisos = this.construirPayloadPermisos();
@@ -284,6 +368,12 @@ export class UsuariosComponent implements OnInit {
   }
 
   confirmarEliminar(u: Usuario) {
+    if (!this.puedeEliminarUsuarios) {
+      this.error = 'No tienes permiso para eliminar usuarios.';
+      this.cdr.markForCheck();
+      return;
+    }
+
     this.usuarioAEliminar = u;
     this.mostrarConfirm = true;
     this.cdr.markForCheck();
@@ -331,6 +421,12 @@ export class UsuariosComponent implements OnInit {
   }
 
   abrirPermisos(u: Usuario) {
+    if (!this.puedeGestionarPermisosUsuarios) {
+      this.error = 'No tienes permiso para gestionar permisos.';
+      this.cdr.markForCheck();
+      return;
+    }
+
     this.abrirModal(u);
     this.mostrarPermisos = true;
     this.cdr.markForCheck();
