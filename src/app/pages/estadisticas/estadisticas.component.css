@@ -1991,3 +1991,287 @@
           padding: 10px 4px 8px 4px;
         }
       }
+/* ========================================= */
+/* MODAL APOYOS */
+/* ========================================= */
+
+.apoyo-modal {
+
+  width: min(920px, 95vw);
+
+  max-height: 90vh;
+
+  overflow-y: auto;
+
+  background:
+    linear-gradient(
+      145deg,
+      #fffefe 0%,
+      #eee4e4 35%,
+      #e7dada 100%
+    );
+
+  border:
+    1px solid rgba(120, 40, 40, 0.12);
+
+  border-radius: 24px;
+
+  box-shadow:
+    0 20px 60px rgba(68, 12, 12, 0.28);
+
+  padding: 1.5rem;
+
+  color: rgb(53, 6, 6);
+}
+
+/* ========================================= */
+/* HEADER */
+/* ========================================= */
+
+.apoyo-modal-head {
+
+  border-bottom:
+    1px solid rgba(95, 25, 25, 0.12);
+
+  padding-bottom: 1rem;
+
+  margin-bottom: 1.2rem;
+}
+
+.apoyo-modal-head h2 {
+
+  margin: 0;
+
+  font-size: 1.6rem;
+
+  font-weight: 700;
+
+  color: #5c1111;
+}
+
+.card-kicker {
+
+  color: #a23a3a;
+
+  font-size: 0.8rem;
+
+  letter-spacing: 1px;
+
+  text-transform: uppercase;
+
+  font-weight: 700;
+}
+
+/* ========================================= */
+/* TEXTO MODAL */
+/* ========================================= */
+
+.map-modal-text {
+
+  color: rgba(70, 12, 12, 0.75);
+
+  font-size: 0.92rem;
+
+  line-height: 1.5;
+}
+
+/* ========================================= */
+/* GRID */
+/* ========================================= */
+
+.apoyos-radio-grid {
+
+  display: grid;
+
+  grid-template-columns:
+    repeat(auto-fill, minmax(260px, 1fr));
+
+  gap: 1rem;
+
+  margin-top: 1.5rem;
+}
+
+/* ========================================= */
+/* CARD */
+/* ========================================= */
+
+.apoyo-radio-card {
+
+  position: relative;
+
+  display: block;
+
+  cursor: pointer;
+}
+
+.apoyo-radio-card input {
+
+  display: none;
+}
+
+/* ========================================= */
+/* CONTENIDO */
+/* ========================================= */
+
+.apoyo-radio-content {
+
+  display: flex;
+
+  align-items: center;
+
+  gap: 1rem;
+
+  background:
+    rgba(255,255,255,0.55);
+
+  border:
+    1px solid rgba(124, 37, 37, 0.10);
+
+  border-radius: 18px;
+
+  padding: 1rem;
+
+  transition:
+    all 0.25s ease;
+
+  backdrop-filter: blur(8px);
+}
+
+/* ========================================= */
+/* HOVER */
+/* ========================================= */
+
+.apoyo-radio-card:hover
+.apoyo-radio-content {
+
+  transform: translateY(-3px);
+
+  border-color:
+    rgba(180, 40, 40, 0.45);
+
+  background:
+    rgba(255,255,255,0.78);
+
+  box-shadow:
+    0 12px 24px rgba(121, 24, 24, 0.14);
+}
+
+/* ========================================= */
+/* INDICADOR */
+/* ========================================= */
+
+.apoyo-radio-indicator {
+
+  width: 18px;
+
+  height: 18px;
+
+  border-radius: 50%;
+
+  border: 2px solid #b94747;
+
+  background: transparent;
+
+  transition: all 0.25s ease;
+
+  flex-shrink: 0;
+}
+
+/* ========================================= */
+/* CHECK VERDE */
+/* ========================================= */
+
+.apoyo-radio-card input:checked
++ .apoyo-radio-content {
+
+  border-color: #28b463;
+
+  background:
+    linear-gradient(
+      145deg,
+      rgba(255,255,255,0.92),
+      rgba(220,255,232,0.9)
+    );
+
+  box-shadow:
+    0 0 18px rgba(40,180,99,0.22);
+}
+
+.apoyo-radio-card input:checked
++ .apoyo-radio-content
+.apoyo-radio-indicator {
+
+  background: #28b463;
+
+  border-color: #28b463;
+
+  box-shadow:
+    0 0 12px rgba(40,180,99,0.55);
+}
+
+/* ========================================= */
+/* TEXTO */
+/* ========================================= */
+
+.apoyo-radio-info {
+
+  display: flex;
+
+  flex-direction: column;
+}
+
+.apoyo-radio-info strong {
+
+  color: #5b1111;
+
+  font-size: 0.95rem;
+
+  font-weight: 700;
+}
+
+.apoyo-radio-info small {
+
+  color: rgba(70, 12, 12, 0.58);
+
+  font-size: 0.75rem;
+
+  margin-top: 0.2rem;
+}
+
+/* ========================================= */
+/* BOTON */
+/* ========================================= */
+
+/* ========================================= */
+/* BOTON CERRAR */
+/* ========================================= */
+
+.popup-close {
+
+  width: 38px;
+
+  height: 38px;
+
+  border-radius: 50%;
+
+  border: none;
+
+  background:
+    rgba(120, 20, 20, 0.08);
+
+  color: #7c1f1f;
+
+  font-size: 1.2rem;
+
+  cursor: pointer;
+
+  transition: all 0.2s ease;
+}
+
+.popup-close:hover {
+
+  background:
+    rgba(120, 20, 20, 0.16);
+
+  transform: rotate(90deg);
+}

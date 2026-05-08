@@ -68,6 +68,16 @@ type MapLegendItem = {
   styleUrls: ['./estadisticas.component.css']
 })
 export class EstadisticasComponent implements AfterViewInit, OnDestroy {
+  /**
+   * Devuelve el texto del apoyo seleccionado según apoyosUnificados.
+   */
+  getTextoApoyoSeleccionado(): string {
+    if (!this.apoyoSeleccionado || typeof this.apoyoSeleccionado !== 'object') return '';
+    const apoyoId = this.apoyoSeleccionado.id;
+    if (!apoyoId) return '';
+    const apoyo = this.apoyosUnificados.find(a => a.id === apoyoId);
+    return apoyo ? apoyo.texto : '';
+  }
   // ...existing code...
 
 
@@ -80,31 +90,40 @@ export class EstadisticasComponent implements AfterViewInit, OnDestroy {
 
   apoyosUnificados = [
     // Apoyos de unidad ya estructurados
-    { id: 'sin_apoyo', valor: '', texto: 'Sin Apoyo' },
-    { id: 'apoyo_davaa', valor: 'APOYO DAVAA', texto: 'Apoyo DAVAA' },
-    { id: 'apoyo_conat', valor: 'APOYO CONAT', texto: 'Apoyo CONAT' },
-    { id: 'apoyo_blica', valor: 'APOYO BLICA', texto: 'Apoyo BLICA' },
+    { id: '', valor: '', texto: 'Sin Apoyo' },
+    { id: 'hop_accion_davaa', valor: 'SI', texto: 'Apoyo DAVAA' },
+    { id: 'hop_apoyo_conat', valor: 'SI', texto: 'Apoyo CONAT' },
+    { id: 'hop_apoyo_blica', valor: 'SI', texto: 'Apoyo BLICA' },
     // Apoyos originales como objetos
-    { id: 'HOP_ACCION_CCOES', valor: 'Apoyo CCOES', texto: 'Apoyo CCOES' },
-    { id: 'HOP_APOYO_AEREO_ALFA', valor: 'Apoyo AÉREO MISIÓN ALFA', texto: 'Apoyo AÉREO MISIÓN ALFA' },
-    { id: 'HOP_APOYO_AEREO_BETA', valor: 'Apoyo AÉREO MISIÓN BETA', texto: 'Apoyo AÉREO MISIÓN BETA' },
-    { id: 'HOP_APOYO_AEREO_CHARLIE', valor: 'Apoyo AÉREO MISIÓN CHARLIE', texto: 'Apoyo AÉREO MISIÓN CHARLIE' },
-    { id: 'HOP_APOYO_ART', valor: 'Apoyo ART', texto: 'Apoyo ART' },
-    { id: 'HOP_APOYO_BAFUR', valor: 'Apoyo BAFUR', texto: 'Apoyo BAFUR' },
-    { id: 'HOP_APOYO_BRCMI', valor: 'Apoyo BRCMI', texto: 'Apoyo BRCMI' },
-    { id: 'HOP_APOYO_BRCOM', valor: 'Apoyo BRCOM', texto: 'Apoyo BRCOM' },
-    { id: 'HOP_APOYO_DIVFE', valor: 'Apoyo DIVFE', texto: 'Apoyo DIVFE' },
-    { id: 'HOP_APOYO_EXDE', valor: 'Apoyo EXDE', texto: 'Apoyo EXDE' },
-    { id: 'HOP_APOYO_FUDAT', valor: 'Apoyo FUDAT', texto: 'Apoyo FUDAT' },
-    { id: 'HOP_APOYO_GROIC', valor: 'Apoyo GROIC', texto: 'Apoyo GROIC' },
-    { id: 'HOP_APOYO_PJ', valor: 'Apoyo PJ', texto: 'Apoyo PJ' },
-    { id: 'HOP_ASALTO_AEREO', valor: 'Apoyo AÉREO', texto: 'Apoyo AÉREO' },
-    { id: 'apoyo_coeej', valor: 'Apoyo COEEJ', texto: 'Apoyo COEEJ' },
-    { id: 'unidad_brcmi', valor: 'UNIDAD BRCMI', texto: 'UNIDAD BRCMI' }
+    { id: 'hop_accion_ccoes', valor: 'SI', texto: 'Apoyo CCOES' },
+    { id: 'hop_apoyo_aereo', valor: 'MISIÓN ALFA', texto: 'Apoyo AÉREO MISIÓN ALFA' },
+    { id: 'hop_apoyo_aereo', valor: 'MISIÓN BETA', texto: 'Apoyo AÉREO MISIÓN BETA' },
+    { id: 'hop_apoyo_aereo', valor: 'MISIÓN CHARLIE', texto: 'Apoyo AÉREO MISIÓN CHARLIE' },
+    { id: 'hop_apoyo_art', valor: 'SI', texto: 'Apoyo ART' },
+    { id: 'hop_apoyo_bafur', valor: 'SI', texto: 'Apoyo BAFUR' },
+    { id: 'hop_apoyo_brcmi', valor: 'SI', texto: 'Apoyo BRCMI' },
+    { id: 'hop_apoyo_brcom', valor: 'SI', texto: 'Apoyo BRCOM' },
+    { id: 'hop_apoyo_divfe', valor: 'SI', texto: 'Apoyo DIVFE' },
+    { id: 'hop_apoyo_exde', valor: 'SI', texto: 'Apoyo EXDE' },
+    { id: 'hop_apoyo_fudat', valor: 'SI', texto: 'Apoyo FUDAT' },
+    { id: 'hop_apoyo_groic', valor: 'SI', texto: 'Apoyo GROIC' },
+    { id: 'hop_apoyo_pj', valor: 'SI', texto: 'Apoyo PJ' },
+    { id: 'hop_asalto_aereo', valor: 'SI', texto: 'Apoyo Asalto AÉREO' },
+    { id: 'hop_apoyo_coeej', valor: 'SI', texto: 'Apoyo COEEJ' },
+    { id: 'hop_apoyo_brcmi', valor: 'SI', texto: 'UNIDAD BRCMI' }
 
   ];
 
-  apoyoSeleccionado: { [key: string]: boolean } = {};
+
+
+
+
+  apoyoSeleccionado: {
+    id: string;
+    valor: string;
+    texto: string;
+  } | null = null;
+
   abrirSubregionesModal() {
     this.mostrarSubregionesModal = true;
     this.subregionSeleccionada = null;
@@ -197,6 +216,7 @@ export class EstadisticasComponent implements AfterViewInit, OnDestroy {
   mostrarSelectorLugarModal = false;
   mostrarSelectorEnemigoModal = false;
   exportingMapImage = false;
+  mostrarSelectorOperacionalModal = false;
 
   // Descargar gráficas como imagen (usa html2canvas)
   async descargarGraficasComoImagen() {
@@ -374,10 +394,11 @@ export class EstadisticasComponent implements AfterViewInit, OnDestroy {
     subFiltroMunicipio: [] as string[],
     subFiltroEnemigo: [] as string[],
     subFiltroEnemigoEstructura: [] as string[],
+    subFiltroOperaciones: [] as string[],
     subFiltroEstado: '',
     documentosTipo: '',
     documentosOrigen: '',
-    documentosClasificacion: ''
+    documentosClasificacion: '',
   };
 
   // --- NUEVO: Datos dinámicos de ejemplo ---
@@ -446,7 +467,8 @@ export class EstadisticasComponent implements AfterViewInit, OnDestroy {
     municipios: [] as string[],
     enemigos: [] as string[],
     enemigosEstructura: [] as string[],
-    estados: ['Activo', 'En revision', 'Pendiente', 'Cerrado']
+    estados: ['Activo', 'En revision', 'Pendiente', 'Cerrado'],
+    operaciones: [] as string[],
   };
   private mapaEnemigoEstructura: Record<string, string[]> = {};
 
@@ -455,6 +477,7 @@ export class EstadisticasComponent implements AfterViewInit, OnDestroy {
     origenes: ['Interno', 'Externo', 'Territorial', 'Judicial'],
     clasificaciones: ['Reservado', 'Publico', 'Confidencial', 'Uso interno']
   };
+
 
 
   // --- NUEVO: Inicialización de datos desde backend ---
@@ -1077,7 +1100,15 @@ export class EstadisticasComponent implements AfterViewInit, OnDestroy {
     this.cdr.markForCheck();
     this.mostrarSelectorEnemigoModal = true;
   }
-  abrirApoyosModal() {  
+  abrirSelectorOperacionalModal() {
+    this.actualizarOpcionesSubFiltrosOperativos();
+    this.cdr.markForCheck();
+    this.mostrarSelectorOperacionalModal = true;
+  }
+  cerrarSelectorOperacionalModal() {
+    this.mostrarSelectorOperacionalModal = false;
+  }
+  abrirApoyosModal() {
     this.mostrarApoyosModal = true;
   }
   cerrarApoyosModal() {
@@ -1110,7 +1141,7 @@ export class EstadisticasComponent implements AfterViewInit, OnDestroy {
   cerrarSelectorEnemigoModal() {
     this.mostrarSelectorEnemigoModal = false;
   }
-    cerrarSelectorSubRegionesModal() {
+  cerrarSelectorSubRegionesModal() {
     this.mostrarSubregionesModal = false;
   }
   limpiarSubFiltros() {
@@ -1130,6 +1161,8 @@ export class EstadisticasComponent implements AfterViewInit, OnDestroy {
     this.actualizarOpcionesSubFiltrosOperativos();
     this.actualizarOpcionesLugar();
     this.actualizarOpcionesEnemigo();
+    this.apoyoSeleccionado = null;
+
   }
 
   private cargarOpcionesSubFiltrosDesdeUsuario() {
@@ -1444,12 +1477,17 @@ export class EstadisticasComponent implements AfterViewInit, OnDestroy {
 
     return resumen;
   }
-
+  getResumenJerarquiaOperacional(): string[] {
+    const resumen: string[] = [];
+    return resumen;
+  }
   getResumenSubFiltrosAplicados(): string[] {
     const resumen = [
       ...this.getResumenJerarquiaUnidades(),
       ...this.getResumenLugar(),
-      ...this.getResumenEnemigo()
+      ...this.getResumenEnemigo(),
+      ...this.getApoyosSeleccionados().map(apoyo => ` ${apoyo.texto}`),
+      ...this.getResumenJerarquiaOperacional()
     ];
 
     // Agregar subregión seleccionada si existe
@@ -1462,6 +1500,14 @@ export class EstadisticasComponent implements AfterViewInit, OnDestroy {
     }
 
     return resumen;
+  }
+  getApoyosSeleccionados() {
+
+    if (!this.apoyoSeleccionado) {
+      return [];
+    }
+
+    return [this.apoyoSeleccionado];
   }
 
   tieneSubFiltrosActivos(): boolean {
@@ -2085,9 +2131,13 @@ export class EstadisticasComponent implements AfterViewInit, OnDestroy {
       'enemigo',
       JSON.stringify(this.filtrosForm.subFiltroEnemigo || [])
     );
-        formData.append(
+    formData.append(
       'enemigo_estructura',
       JSON.stringify(this.filtrosForm.subFiltroEnemigoEstructura || [])
+    );
+    formData.append(
+      'apoyos',
+      JSON.stringify(this.apoyoSeleccionado || [])
     );
     // Aquí puedes agregar más filtros en el futuro:
     // formData.append('otro_filtro', this.filtrosForm.otroFiltro);
