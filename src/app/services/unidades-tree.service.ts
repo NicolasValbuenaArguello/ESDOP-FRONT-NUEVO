@@ -212,7 +212,9 @@ export class UnidadesTreeService {
   obtenerNombresOperacionDesdeStorage(storageKey = 'operacion'): string[] {
     return this.obtenerNombresOperacion(this.obtenerOperacionDesdeStorage(storageKey));
   }
-
+obtenerTiposOperacionDesdeStorage(storageKey = 'tipo_operacion'): string[] {
+    return this.obtenerNombresTipoOperacion(this.obtenerTipoOperacionDesdeStorage(storageKey));
+  }
   normalizarEstrategiaAfecta(input: unknown): EstrategiaAfectaRegistroPlano[] {
     return this.normalizarCatalogoConAliases<'estrategia_afecta', EstrategiaAfectaRegistroPlano>(
       input,
@@ -266,7 +268,18 @@ export class UnidadesTreeService {
   }
 
   obtenerNombresTipoOperacionDesdeStorage(storageKey = 'tipo_operacion'): string[] {
-    return this.obtenerNombresTipoOperacion(this.obtenerTipoOperacionDesdeStorage(storageKey));
+    // Siempre devolver solo los strings tipo_operacion, aunque el formato sea inesperado
+    try {
+      const raw = localStorage.getItem(storageKey);
+      if (!raw) return [];
+      const arr = JSON.parse(raw);
+      if (Array.isArray(arr)) {
+        return Array.from(new Set(arr.map((item: any) => item?.tipo_operacion).filter(Boolean))).sort((a, b) => a.localeCompare(b));
+      }
+      return [];
+    } catch {
+      return [];
+    }
   }
 
   normalizarHecho(input: unknown): HechoRegistroPlano[] {

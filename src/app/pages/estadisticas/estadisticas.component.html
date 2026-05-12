@@ -610,11 +610,17 @@
             <div class="date-inputs-row">
               <label class="coordinate-input-card filter-date-card improved-date-label">
                 <span>Fecha inicial</span>
-                <input type="date" name="lapsoFinalA" [(ngModel)]="filtrosForm.lapsoFinalA">
+                <input type="date" name="lapsoFinalA" [(ngModel)]="filtrosForm.lapsoFinalA"
+                  [class.input-error]="!filtrosForm.lapsoFinalA && dashboardErrorMsg">
+                <div *ngIf="!filtrosForm.lapsoFinalA && dashboardErrorMsg" class="error-msg">Requerido</div>
+
+
               </label>
               <label class="coordinate-input-card filter-date-card improved-date-label">
                 <span>Fecha final</span>
-                <input type="date" name="lapsoFinalB" [(ngModel)]="filtrosForm.lapsoFinalB">
+                <input type="date" name="lapsoFinalB" [(ngModel)]="filtrosForm.lapsoFinalB"
+                  [class.input-error]="!filtrosForm.lapsoFinalB && dashboardErrorMsg">
+                <div *ngIf="!filtrosForm.lapsoFinalB && dashboardErrorMsg" class="error-msg">Requerido</div>
               </label>
             </div>
           </div>
@@ -743,7 +749,7 @@
         <div class="document-download-card subfilters-status-card"
           [class.subfilters-status-card-active]="tieneSubFiltrosActivos()">
           <div>
-            <strong>Documento</strong>
+            <strong>Filtros</strong>
             <p>
               {{ tieneSubFiltrosActivos()
               ? 'Ya hay sub filtros aplicados sobre la consulta actual.'
@@ -757,11 +763,8 @@
               <span class="subfilters-inline-chip" *ngFor="let item of getResumenSubFiltrosAplicados()">{{ item
                 }}</span>
             </div>
-        <div
-          class="subfilters-inline-chips"
-          *ngIf="apoyoSeleccionado && tieneSubFiltrosActivos()"
-        >
-        </div>
+            <div class="subfilters-inline-chips" *ngIf="apoyoSeleccionado && tieneSubFiltrosActivos()">
+            </div>
 
             <ng-template #apoyoSinSeleccion>
               <p class="subfilter-empty-state">Aún no has seleccionado un apoyo.</p>
@@ -783,38 +786,93 @@
 
       <section class="filter-block">
         <div class="filter-block-head">
-          <span class="dms-group-title">Documentos</span>
+          <span class="dms-group-title">Documentos - (PDF, PPTX, EXCEL)</span>
           <small>Clasificacion documental</small>
         </div>
 
-        <div class="document-download-card">
+        <div class="document-download-card subfilters-status-card"
+          [class.subfilters-status-card-active]="tieneDocumentosActivos()">
           <div>
-            <strong>Documento</strong>
-            <p>Selecciona el archivo que deseas preparar para descarga segun el filtro aplicado.</p>
+            <strong>Documentos a Generar</strong>
+            <p>
+              {{ tieneDocumentosActivos()
+              ? 'Ya hay tipo de documento seleccionado para la consulta actual.'
+              : 'Seleciona un Documento, con el fin de obtener los resultados deseados en un reporte.' }}
+            </p>
+            <div class="subfilters-inline-status" *ngIf="tieneDocumentosActivos()">
+              <span class="subfilters-inline-badge">Documento Seleccionado</span>
+              <span class="subfilters-inline-count">{{ getResumenDocumentosAplicados().length }} seleccion(es)</span>
+            </div>
+            <div class="subfilters-inline-chips" *ngIf="tieneDocumentosActivos()">
+              <span class="subfilters-inline-chip" *ngFor="let item of getResumenDocumentosAplicados()">{{ item
+                }}</span>
+            </div>
+            <div class="subfilters-inline-chips" *ngIf="apoyoSeleccionado && tieneDocumentosActivos()">
+            </div>
+
+            <ng-template #apoyoSinSeleccion>
+              <p class="subfilter-empty-state">Aún no has seleccionado un documento.</p>
+            </ng-template>
           </div>
 
-          <button type="button" class="document-download-button">
-            Selecionar documento a descargar
-          </button>
+          <div class="subfilters-card-actions">
+            <button *ngIf="tieneDocumentosActivos()" type="button"
+              class="document-download-button subfilters-clear-button" (click)="limpiarDocumentos()">
+              Limpiar selección
+            </button>
+            <button type="button" class="document-download-button" (click)="abrirDocumentosFiltrosModal()">
+              {{ tieneDocumentosActivos() ? 'Editar Selección' : 'Seleccionar un documento' }}
+            </button>
+          </div>
+        </div>
+      </section>
+      <section class="filter-block">
+        <div class="filter-block-head">
+          <span class="dms-group-title">Dashboard - Documentos</span>
+          <small>Seccion para gestionar los documentos y dashboard</small>
+        </div>
+
+        <div class="document-download-card subfilters-status-card"
+          [class.subfilters-status-card-active]="tieneDocumentosActivos()">
+          <div>
+            <strong>Documentos a Generar</strong>
+
+
+            <div class="document-download-card">
+              <div>
+                <strong>Dashboard</strong>
+                <p>en este apartado se descarga la informacion de los Resultados.</p>
+              </div>
+
+              <button *ngIf="puedeEditarEstadisticasCrud" type="button"
+                class="map-action-button map-action-button-active" (click)="descargar_documento()"
+                [disabled]="descargandoDocumento" >
+                {{ descargandoDocumento ? 'Descargando...' : 'Descargar documento' }}
+              </button>
+              <p class="map-modal-text" *ngIf="descargadoDocumentoStatusMsg">{{ descargadoDocumentoStatusMsg }}</p>
+            </div>
+            <div class="document-download-card">
+              <div>
+                <strong>Dashboard</strong>
+                <p>en este apartado se muestra la informacion de los Resultados.</p>
+              </div>
+
+              <button *ngIf="puedeEditarEstadisticasCrud" type="button"
+                class="map-action-button map-action-button-active" (click)="actualizar_dashboard()"
+                [disabled]="cargandoDashboard">
+                {{ cargandoDashboard ? 'Actualizando...' : 'Ver informacion general' }}
+              </button>
+              <p class="map-modal-text" *ngIf="dashboardStatusMsg">{{ dashboardStatusMsg }}</p>
+            </div>
+            <button type="button" class="map-action-button" (click)="cerrarFiltrosModal()">Cancelar</button>
+
+
+
+          </div>
         </div>
       </section>
 
-      <div class="coordinate-modal-actions">
-        <button type="button" class="map-action-button" (click)="cerrarFiltrosModal()">Cancelar</button>
-        <div class="document-download-card">
-          <div>
-            <strong>Dashboard</strong>
-            <p>en este apartado se muestra la informacion de los Resultados.</p>
-          </div>
 
-          <button *ngIf="puedeEditarEstadisticasCrud" type="button" class="map-action-button map-action-button-active"
-            (click)="actualizar_dashboard()" [disabled]="cargandoDashboard">
-            {{ cargandoDashboard ? 'Actualizando...' : 'Ver informacion general' }}
-          </button>
-          <p class="map-modal-text" *ngIf="dashboardStatusMsg">{{ dashboardStatusMsg }}</p>
-        </div>
-
-      </div>
     </form>
   </section>
 </div>
@@ -1400,38 +1458,244 @@
   </div>
   <!-- ========================================= -->
   <!-- Modal operacion -->
-   <!--========================================= -->
+  <!--========================================= -->
 
-    <div class="subfilter-nested-backdrop" *ngIf="mostrarSelectorOperacionalModal" (click)="cerrarSelectorOperacionalModal()">
+  <div class="subfilter-nested-backdrop" *ngIf="mostrarSelectorOperacionalModal"
+    (click)="cerrarSelectorOperacionalModal()">
     <div class="subfilter-nested-modal" (click)="$event.stopPropagation()">
       <div class="popup-modal-head">
         <div>
-          <span class="card-kicker">Unidades</span>
-          <h2>Lineas estrategicas</h2>
+          <span class="card-kicker">Filtros Especiales</span>
+          <h2>Filtros Operacionales Especiales</h2>
         </div>
         <button class="popup-close" type="button" aria-label="Cerrar selector de unidades"
           (click)="cerrarSelectorOperacionalModal()">&times;</button>
       </div>
-      <p class="map-modal-text">Selecciona la lineas estrategica.
+      <p class="map-modal-text">Selecciona el filtro operacional que deseas aplicar.
       </p>
       <div class="subfilters-grid subfilters-grid-nested">
         <label class="coordinate-input-card subfilter-card">
-          <span>Linea estrategica</span>
+          <span>Operación (línea estratégica)</span>
           <select name="linaestrategica" [(ngModel)]="filtrosForm.subFiltroOperaciones">
             <option value="">Todas</option>
-            <option *ngFor="let operacion of opcionesSubFiltros.operaciones" [value]="operacion">{{ operacion }}
+            <ng-container
+              *ngIf="opcionesSubFiltros.operaciones && opcionesSubFiltros.operaciones.length; else sinOperaciones">
+              <option *ngFor="let operacion of opcionesSubFiltros.operaciones" [value]="operacion">{{ operacion }}
+              </option>
+            </ng-container>
+          </select>
+          <ng-template #sinOperaciones>
+            <option disabled value="">No hay operaciones disponibles</option>
+          </ng-template>
+
+        </label>
+        <label class="coordinate-input-card subfilter-card">
+          <span>Tipo de Operaciones</span>
+          <select name="tipoOperaciones" [(ngModel)]="filtrosForm.tiposOperacion">
+            <option value="">Todas</option>
+            <ng-container
+              *ngIf="opcionesSubFiltros.tiposOperacion && opcionesSubFiltros.tiposOperacion.length; else sinTipoOperaciones">
+              <option *ngFor="let tipoOperacion of opcionesSubFiltros.tiposOperacion" [value]="tipoOperacion">{{
+                tipoOperacion }}</option>
+            </ng-container>
+          </select>
+          <ng-template #sinTipoOperaciones>
+            <option disabled value="">No hay tipos de operaciones disponibles</option>
+          </ng-template>
+
+        </label>
+        <label class="coordinate-input-card subfilter-card">
+          <span>Hechos</span>
+          <select name="hechos" [(ngModel)]="filtrosForm.hechos">
+            <option value="">Todos</option>
+            <ng-container *ngIf="opcionesSubFiltros.hechos && opcionesSubFiltros.hechos.length; else sinHechos">
+              <option *ngFor="let hecho of opcionesSubFiltros.hechos" [value]="hecho">{{ hecho }}</option>
+            </ng-container>
+          </select>
+          <ng-template #sinHechos>
+            <option disabled value="">No hay hechos disponibles</option>
+          </ng-template>
+
+        </label>
+        <label class="coordinate-input-card subfilter-card">
+          <span>Estrategia</span>
+          <select name="estrategia" [(ngModel)]="filtrosForm.estrategiasAfecta">
+            <option value="">Todas</option>
+            <ng-container
+              *ngIf="opcionesSubFiltros.estrategiasAfecta && opcionesSubFiltros.estrategiasAfecta.length; else sinEstrategias">
+              <option *ngFor="let estrategia of opcionesSubFiltros.estrategiasAfecta" [value]="estrategia">{{ estrategia
+                }}</option>
+            </ng-container>
+          </select>
+          <ng-template #sinEstrategias>
+            <option disabled value="">No hay estrategias disponibles</option>
+          </ng-template>
+
+        </label>
+        <label class="coordinate-input-card subfilter-card">
+          <span>Resultados Gaulas</span>
+          <select name="resultadosGaulas" [(ngModel)]="filtrosForm.resultadosGaulas">
+            <option value="">Todas</option>
+            <ng-container
+              *ngIf="opcionesSubFiltros.resultadosGaulas && opcionesSubFiltros.resultadosGaulas.length; else sinResultadosGaulas">
+              <option *ngFor="let resultado of opcionesSubFiltros.resultadosGaulas" [value]="resultado">{{ resultado }}
+              </option>
+            </ng-container>
+          </select>
+          <ng-template #sinResultadosGaulas>
+            <option disabled value="">No hay resultados disponibles</option>
+          </ng-template>
+        </label>
+        <label class="coordinate-input-card subfilter-card">
+          <span>Resultados Coordinados</span>
+          <select name="resultadosCoordinados" [(ngModel)]="filtrosForm.resultadosCoordinados">
+            <option value="">Todas</option>
+            <ng-container
+              *ngIf="opcionesSubFiltros.resultadosCoordinados && opcionesSubFiltros.resultadosCoordinados.length; else sinResultadosCoordinados">
+              <option *ngFor="let resultado of opcionesSubFiltros.resultadosCoordinados" [value]="resultado">{{
+                resultado }}</option>
+            </ng-container>
+          </select>
+          <ng-template #sinResultadosCoordinados>
+            <option disabled value="">No hay resultados disponibles</option>
+          </ng-template>
+        </label>
+        <label class="coordinate-input-card subfilter-card">
+          <span>Resultados Conjuntos</span>
+          <select name="resultadosConjuntos" [(ngModel)]="filtrosForm.resultadosConjuntos">
+            <option value="">Todas</option>
+            <ng-container
+              *ngIf="opcionesSubFiltros.resultadosConjuntos && opcionesSubFiltros.resultadosConjuntos.length; else sinResultadosConjuntos">
+              <option *ngFor="let resultado of opcionesSubFiltros.resultadosConjuntos" [value]="resultado">{{ resultado
+                }}</option>
+            </ng-container>
+          </select>
+          <ng-template #sinResultadosConjuntos>
+            <option disabled value="">No hay resultados disponibles</option>
+          </ng-template>
+        </label>
+
+
+
+
+      </div>
+      <div class="coordinate-modal-actions subfilters-actions">
+        <button type="button" class="map-action-button" (click)="cerrarSelectorOperacionalModal()">Cerrar</button>
+      </div>
+    </div>
+  </div>
+
+
+</div>
+<div class="popup-modal-backdrop" *ngIf="mostrarDocumentosModal" (click)="cerrarSubFiltrosModal()">
+  <div class="popup-modal popup-modal-subfilters" (click)="$event.stopPropagation()">
+    <div class="popup-modal-head">
+      <div>
+        <span class="card-kicker">Documentos para Generar Reportes Estadisticos</span>
+        <h2>Segmentacion por tipos de Resultados</h2>
+      </div>
+      <button class="popup-close" type="button" aria-label="Cerrar documentos"
+        (click)="cerrarDocumentosFiltrosModal()">&times;</button>
+    </div>
+
+    <p class="map-modal-text">Selecciona el tipo de Documento que quieres generar.
+    </p>
+
+    <div class="subfilters-grid">Seleccion un tipo de documento, el cual corresponde un determinado reporte estadistico,
+      para luego aplicar los filtros operativos que deseas incluir en el análisis.
+
+      <!-- Documentos de Infraestructura -->
+      <section class="subfilter-card subfilter-card-wide unidades-launcher-card">
+        <div class="subfilter-launcher-head">
+          <div>
+            <span>Infraestructura</span>
+            <strong>Documentos de Infraestructura</strong>
+          </div>
+          <button type="button" class="map-action-button" (click)="abrirInfraestructuraModal()">
+            Documentos de Infraestructura
+          </button>
+        </div>
+        <small class="subfilter-hint">Abre la ventana emergente seleccionar los tipos de reportes relacionados con
+          infraestructura.</small>
+
+        <!-- SELECCION -->
+
+        <div class="subfilter-selection-summary"
+          *ngIf="documentoInfraSeleccionado else documentosInfraestructuraSinSeleccion">
+
+          <span class="subfilter-summary-label">
+            Selección actual
+          </span>
+
+          <div class="subfilter-selection-chips">
+
+            <span class="subfilter-chip">
+              {{ documentoInfraSeleccionado.texto }}
+            </span>
+
+          </div>
+
+        </div>
+
+        <!-- SIN SELECCION -->
+
+        <ng-template #documentosInfraestructuraSinSeleccion>
+
+          <p class="subfilter-empty-state">
+            Aún no has seleccionado un documento de infraestructura.
+          </p>
+
+        </ng-template>
+
+
+      </section>
+
+
+
+    </div>
+
+
+
+    <div class="coordinate-modal-actions subfilters-actions">
+      <button type="button" class="map-action-button" (click)="limpiarDocumentos()">Limpiar</button>
+      <button type="button" class="map-action-button" (click)="cerrarSelectorDocumentosModal()">Cancelar</button>
+      <button type="button" class="map-action-button map-action-button-active"
+        (click)="aplicarDocumentos()">Aplicar</button>
+    </div>
+
+  </div>
+
+  <div class="subfilter-nested-backdrop" *ngIf="mostrarSelectorUnidadesModal" (click)="cerrarSelectorUnidadesModal()">
+    <div class="subfilter-nested-modal" (click)="$event.stopPropagation()">
+      <div class="popup-modal-head">
+        <div>
+          <span class="card-kicker">Unidades</span>
+          <h2>Jerarquia operativa</h2>
+        </div>
+        <button class="popup-close" type="button" aria-label="Cerrar selector de unidades"
+          (click)="cerrarSelectorUnidadesModal()">&times;</button>
+      </div>
+      <p class="map-modal-text">Selecciona la jerarquia operativa. Cada nivel depende directamente del padre anterior.
+      </p>
+      <div class="subfilters-grid subfilters-grid-nested">
+        <label class="coordinate-input-card subfilter-card">
+          <span>Divisiones</span>
+          <select name="subFiltroDivisionesFtModal" [(ngModel)]="filtrosForm.subFiltroDivisionesFt"
+            (ngModelChange)="onSubFiltroDivisionFtChange()" [disabled]="!opcionesSubFiltros.divisiones_ft.length">
+            <option value="">Todas</option>
+            <option *ngFor="let division of opcionesSubFiltros.divisiones_ft" [value]="division">{{ division }}
             </option>
           </select>
           <small class="subfilter-hint">Primer nivel de la jerarquia.</small>
         </label>
         <label class="coordinate-input-card subfilter-card">
           <span>Divisiones FT</span>
-          <!-- <select name="subFiltroDivisionesModal" [(ngModel)]="filtrosForm.subFiltroOperaciones"
+          <select name="subFiltroDivisionesModal" [(ngModel)]="filtrosForm.subFiltroDivisiones"
             (ngModelChange)="onSubFiltroDivisionChange()"
             [disabled]="!filtrosForm.subFiltroDivisionesFt || !opcionesSubFiltros.divisiones.length">
             <option value="">Todas</option>
             <option *ngFor="let division of opcionesSubFiltros.divisiones" [value]="division">{{ division }}</option>
-          </select> -->
+          </select>
           <small class="subfilter-hint">Segundo nivel dependiente de la division superior.</small>
         </label>
         <label class="coordinate-input-card subfilter-card">
@@ -1455,6 +1719,500 @@
       </div>
       <div class="coordinate-modal-actions subfilters-actions">
         <button type="button" class="map-action-button" (click)="cerrarSelectorUnidadesModal()">Cerrar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal anidado para Lugar (Departamento y Municipio) -->
+  <div class="subfilter-nested-backdrop" *ngIf="mostrarSelectorLugarModal" (click)="cerrarSelectorLugarModal()">
+    <div class="subfilter-nested-modal subfilter-nested-modal-place" (click)="$event.stopPropagation()">
+      <div class="popup-modal-head">
+        <div>
+          <span class="card-kicker">Lugar</span>
+          <h2>Ubicación geográfica</h2>
+        </div>
+        <button class="popup-close" type="button" aria-label="Cerrar selector de lugar"
+          (click)="cerrarSelectorLugarModal()">&times;</button>
+      </div>
+      <p class="map-modal-text">Selecciona el departamento y municipio. Cada municipio depende del departamento
+        seleccionado.</p>
+      <div class="subfilters-grid subfilters-grid-nested">
+        <label class="coordinate-input-card subfilter-card">
+          <span>Departamento</span>
+          <select class="subfilter-multiselect" name="subFiltroDepartamentoModal"
+            [(ngModel)]="filtrosForm.subFiltroDepartamento" (ngModelChange)="onSubFiltroDepartamentoChange()" multiple
+            size="6" [disabled]="!opcionesSubFiltros.departamentos.length">
+            <option *ngFor="let dpto of opcionesSubFiltros.departamentos" [value]="dpto">{{ dpto }}</option>
+          </select>
+          <small class="subfilter-hint">Puedes seleccionar uno o varios departamentos.</small>
+        </label>
+        <label class="coordinate-input-card subfilter-card">
+          <span>Municipio</span>
+          <select class="subfilter-multiselect" name="subFiltroMunicipioModal"
+            [(ngModel)]="filtrosForm.subFiltroMunicipio" (ngModelChange)="onSubFiltroMunicipioChange()" multiple
+            size="8" [disabled]="!filtrosForm.subFiltroDepartamento.length || !opcionesSubFiltros.municipios.length">
+            <option *ngFor="let mpio of opcionesSubFiltros.municipios" [value]="mpio">{{ mpio }}</option>
+          </select>
+          <small class="subfilter-hint">Selecciona primero un departamento para habilitar sus municipios.</small>
+        </label>
+      </div>
+      <div class="coordinate-modal-actions subfilters-actions">
+        <button type="button" class="map-action-button" (click)="cerrarSelectorLugarModal()">Cerrar</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="subfilter-nested-backdrop" *ngIf="mostrarSelectorEnemigoModal" (click)="cerrarSelectorEnemigoModal()">
+    <div class="subfilter-nested-modal subfilter-nested-modal-place" (click)="$event.stopPropagation()">
+      <div class="popup-modal-head">
+        <div>
+          <span class="card-kicker">Enemigo</span>
+          <h2>Clasificacion de enemigo</h2>
+        </div>
+        <button class="popup-close" type="button" aria-label="Cerrar selector de enemigo"
+          (click)="cerrarSelectorEnemigoModal()">&times;</button>
+      </div>
+
+      <p class="map-modal-text">Selecciona los catalogos de enemigo y enemigo estructura de forma independiente.</p>
+
+      <div class="subfilters-grid subfilters-grid-nested subfilters-grid-independent">
+        <section class="coordinate-input-card subfilter-card subfilter-card-select-panel">
+          <div class="subfilter-panel-head">
+            <div>
+              <span>Enemigo</span>
+              <strong>Catalogo principal</strong>
+            </div>
+            <small>{{ filtrosForm.subFiltroEnemigo.length }} seleccionados</small>
+          </div>
+
+          <select class="subfilter-multiselect" name="subFiltroEnemigoModal" [(ngModel)]="filtrosForm.subFiltroEnemigo"
+            (ngModelChange)="onSubFiltroEnemigoChange()" multiple size="8"
+            [disabled]="!opcionesSubFiltros.enemigos.length">
+            <option *ngFor="let enemigo of opcionesSubFiltros.enemigos" [value]="enemigo">{{ enemigo }}</option>
+          </select>
+
+          <small class="subfilter-hint">
+            Puedes seleccionar uno o varios enemigos disponibles para el usuario.
+          </small>
+        </section>
+
+        <section class="coordinate-input-card subfilter-card subfilter-card-select-panel">
+          <div class="subfilter-panel-head">
+            <div>
+              <span>Enemigo estructura</span>
+              <strong>Catalogo dependiente</strong>
+            </div>
+            <small>{{ filtrosForm.subFiltroEnemigoEstructura.length }} seleccionados</small>
+          </div>
+
+          <select class="subfilter-multiselect" name="subFiltroEnemigoEstructuraModal"
+            [(ngModel)]="filtrosForm.subFiltroEnemigoEstructura" (ngModelChange)="onSubFiltroEnemigoEstructuraChange()"
+            multiple size="8"
+            [disabled]="!filtrosForm.subFiltroEnemigo.length || !opcionesSubFiltros.enemigosEstructura.length">
+            <option *ngFor="let estructura of opcionesSubFiltros.enemigosEstructura" [value]="estructura">{{
+              estructura }}</option>
+          </select>
+
+          <small class="subfilter-hint">
+            Selecciona primero un enemigo para habilitar sus estructuras asociadas.
+          </small>
+        </section>
+      </div>
+
+      <div class="coordinate-modal-actions subfilters-actions">
+        <button type="button" class="map-action-button" (click)="cerrarSelectorEnemigoModal()">Cerrar</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="subfilter-nested-backdrop" *ngIf="mostrarApoyosModal" (click)="cerrarApoyosModal()">
+    <div class="subfilter-nested-modal subfilter-nested-modal-place" (click)="$event.stopPropagation()">
+      <div class="popup-modal-head">
+        <div>
+          <span class="card-kicker">Enemigo</span>
+          <h2>Clasificacion de enemigo</h2>
+        </div>
+        <button class="popup-close" type="button" aria-label="Cerrar selector de enemigo"
+          (click)="cerrarApoyosModal()">&times;</button>
+      </div>
+
+      <p class="map-modal-text">Selecciona los catalogos de enemigo y enemigo estructura de forma independiente.</p>
+
+      <div class="subfilters-grid subfilters-grid-nested subfilters-grid-independent">
+        <section class="coordinate-input-card subfilter-card subfilter-card-select-panel">
+          <div class="subfilter-panel-head">
+            <div>
+              <span>Enemigo</span>
+              <strong>Catalogo principal</strong>
+            </div>
+            <small>{{ filtrosForm.subFiltroEnemigo.length }} seleccionados</small>
+          </div>
+
+          <select class="subfilter-multiselect" name="subFiltroEnemigoModal" [(ngModel)]="filtrosForm.subFiltroEnemigo"
+            (ngModelChange)="onSubFiltroEnemigoChange()" multiple size="8"
+            [disabled]="!opcionesSubFiltros.enemigos.length">
+            <option *ngFor="let enemigo of opcionesSubFiltros.enemigos" [value]="enemigo">{{ enemigo }}</option>
+          </select>
+
+          <small class="subfilter-hint">
+            Puedes seleccionar uno o varios enemigos disponibles para el usuario.
+          </small>
+        </section>
+
+        <section class="coordinate-input-card subfilter-card subfilter-card-select-panel">
+          <div class="subfilter-panel-head">
+            <div>
+              <span>Enemigo estructura</span>
+              <strong>Catalogo dependiente</strong>
+            </div>
+            <small>{{ filtrosForm.subFiltroEnemigoEstructura.length }} seleccionados</small>
+          </div>
+
+          <select class="subfilter-multiselect" name="subFiltroEnemigoEstructuraModal"
+            [(ngModel)]="filtrosForm.subFiltroEnemigoEstructura" (ngModelChange)="onSubFiltroEnemigoEstructuraChange()"
+            multiple size="8"
+            [disabled]="!filtrosForm.subFiltroEnemigo.length || !opcionesSubFiltros.enemigosEstructura.length">
+            <option *ngFor="let estructura of opcionesSubFiltros.enemigosEstructura" [value]="estructura">{{
+              estructura }}</option>
+          </select>
+
+          <small class="subfilter-hint">
+            Selecciona primero un enemigo para habilitar sus estructuras asociadas.
+          </small>
+        </section>
+      </div>
+
+      <div class="coordinate-modal-actions subfilters-actions">
+        <button type="button" class="map-action-button" (click)="cerrarApoyosModal()">Cerrar</button>
+      </div>
+    </div>
+  </div>
+
+
+  <!-- Modal Subregiones con layout de 3 columnas -->
+  <div class="popup-modal-backdrop subregiones-modal-center" *ngIf="mostrarSubregionesModal"
+    (click)="cerrarSubregionesModal()">
+    <div class="popup-modal subregiones-modal-3col subregiones-modal-enhanced" (click)="$event.stopPropagation()">
+      <div class="popup-modal-head">
+        <span class="card-kicker">Subregiones</span>
+        <h2>Selecciona una subregión</h2>
+        <button class="popup-close" type="button" aria-label="Cerrar"
+          (click)="cerrarSubregionesModal()">&times;</button>
+      </div>
+      <div class="subregiones-3col-layout subregiones-3col-layout-diff">
+        <!-- Columna izquierda: subregiones -->
+        <div class="subregiones-col subregiones-list subregiones-list-enhanced subregiones-col-diff">
+          <h3 class="subregiones-list-title">Subregiones</h3>
+          <div class="subregiones-list-scroll">
+            <div *ngFor="let sub of subregiones" class="subregion-list-item">
+              <button class="map-action-button subregion-btn" [class.selected]="subregionSeleccionada === sub"
+                (click)="seleccionarSubregion(sub)">{{ sub.nombre }}</button>
+            </div>
+          </div>
+        </div>
+        <!-- Columna derecha: departamentos y municipios juntos -->
+        <div class="subregiones-col subregiones-deptos-mpios subregiones-deptos-mpios-enhanced subregiones-col-diff">
+          <div *ngIf="subregionSeleccionada">
+            <h3 class="deptos-title">Departamentos</h3>
+            <div class="subregiones-counts">
+              <span class="count-label">Departamentos:</span>
+              <span class="count-value">{{ subregionSeleccionada.departamentos.length }}</span>
+              <span class="count-label">Municipios:</span>
+              <span class="count-value">{{ subregionSeleccionada.departamentos.reduce((acc, d) => acc +
+                (d.municipios?.length || 0), 0) }}</span>
+            </div>
+            <div class="deptos-list-scroll">
+              <div *ngFor="let dep of subregionSeleccionada.departamentos" class="departamento-list-item">
+                <button class="map-action-button depto-btn" [class.selected]="departamentoSeleccionado === dep"
+                  (click)="seleccionarDepartamento(dep)">{{ dep.nombre }}</button>
+              </div>
+            </div>
+            <div *ngIf="departamentoSeleccionado" class="municipios-list-block municipios-list-block-enhanced">
+              <h3 class="mpios-title">Municipios</h3>
+              <ul class="mpios-list-scroll">
+                <li *ngFor="let mpio of departamentoSeleccionado.municipios">{{ mpio }}</li>
+              </ul>
+            </div>
+          </div>
+          <div *ngIf="!subregionSeleccionada" class="subregiones-empty-state">
+            <p>Selecciona una subregión para ver sus departamentos y municipios.</p>
+          </div>
+        </div>
+      </div>
+      <div class="coordinate-modal-actions subfilters-actions subregiones-actions-enhanced">
+        <button type="button" class="map-action-button map-action-button-active"
+          (click)="cerrarSelectorSubRegionesModal()">Cerrar</button>
+      </div>
+    </div>
+  </div>
+  <!-- ========================================= -->
+  <!-- MODAL APOYOS -->
+  <!-- ========================================= -->
+
+  <div class="subfilter-nested-backdrop" *ngIf="mostrarApoyosModal" (click)="cerrarApoyosModal()">
+
+    <div class="subfilter-nested-modal apoyo-modal" (click)="$event.stopPropagation()">
+
+      <!-- HEADER -->
+
+      <div class="popup-modal-head apoyo-modal-head">
+
+        <div>
+
+          <span class="card-kicker">
+            APOYOS
+          </span>
+
+          <h2>
+            Clasificación de apoyos
+          </h2>
+
+        </div>
+
+        <button class="popup-close" type="button" aria-label="Cerrar selector de apoyos" (click)="cerrarApoyosModal()">
+          &times;
+        </button>
+
+      </div>
+
+      <!-- TEXTO -->
+
+      <p class="map-modal-text">
+
+        Selecciona el tipo de apoyo operacional
+        que deseas aplicar al análisis estadístico.
+
+      </p>
+
+      <!-- LISTADO -->
+
+      <div class="apoyos-radio-grid">
+
+        <label class="apoyo-radio-card" *ngFor="let apoyo of apoyosUnificados">
+
+          <input type="radio" name="apoyoSeleccionado" [value]="apoyo" [(ngModel)]="apoyoSeleccionado">
+
+          <div class="apoyo-radio-content">
+
+            <div class="apoyo-radio-indicator"></div>
+
+            <div class="apoyo-radio-info">
+
+              <strong>
+                {{ apoyo.texto }}
+              </strong>
+
+              <small>
+                {{ apoyo.id }}
+              </small>
+
+            </div>
+
+          </div>
+
+        </label>
+
+      </div>
+
+      <!-- FOOTER -->
+
+      <div class="coordinate-modal-actions subfilters-actions" style="  background: #f9f9f900;">
+
+        <button type="button" class="map-action-button" (click)="cerrarApoyosModal()">
+          Cerrar
+        </button>
+
+      </div>
+
+    </div>
+
+  </div>
+
+  <!-- ========================================= -->
+  <!-- Modal operacion -->
+  <!--========================================= -->
+
+  <div class="subfilter-nested-backdrop" *ngIf="mostrarSelectorOperacionalModal"
+    (click)="cerrarSelectorOperacionalModal()">
+    <div class="subfilter-nested-modal" (click)="$event.stopPropagation()">
+      <div class="popup-modal-head">
+        <div>
+          <span class="card-kicker">Filtros Operacionales</span>
+          <h2>Filtros Especiales Operaciones</h2>
+        </div>
+        <button class="popup-close" type="button" aria-label="Cerrar selector de unidades"
+          (click)="cerrarSelectorOperacionalModal()">&times;</button>
+      </div>
+      <p class="map-modal-text">Selecciona un Tipo de Filtro Operacional.
+      </p>
+      <div class="subfilters-grid subfilters-grid-nested">
+        <label class="coordinate-input-card subfilter-card">
+          <span>Operación (línea estratégica)</span>
+          <select name="linaestrategica" [(ngModel)]="filtrosForm.subFiltroOperaciones">
+            <option value="">Todas</option>
+            <ng-container
+              *ngIf="opcionesSubFiltros.operaciones && opcionesSubFiltros.operaciones.length; else sinOperaciones">
+              <option *ngFor="let operacion of opcionesSubFiltros.operaciones" [value]="operacion">{{ operacion }}
+              </option>
+            </ng-container>
+          </select>
+          <ng-template #sinOperaciones>
+            <option disabled value="">No hay operaciones disponibles</option>
+          </ng-template>
+
+        </label>
+        <label class="coordinate-input-card subfilter-card">
+          <span>Tipo de Operaciones</span>
+          <select name="tipoOperaciones" [(ngModel)]="filtrosForm.tiposOperacion">
+            <option value="">Todas</option>
+            <ng-container
+              *ngIf="opcionesSubFiltros.tiposOperacion && opcionesSubFiltros.tiposOperacion.length; else sinTipoOperaciones">
+              <option *ngFor="let tipoOperacion of opcionesSubFiltros.tiposOperacion" [value]="tipoOperacion">{{
+                tipoOperacion }}</option>
+            </ng-container>
+          </select>
+          <ng-template #sinTipoOperaciones>
+            <option disabled value="">No hay tipos de operaciones disponibles</option>
+          </ng-template>
+
+        </label>
+        <label class="coordinate-input-card subfilter-card">
+          <span>Hechos</span>
+          <select name="hechos" [(ngModel)]="filtrosForm.hechos">
+            <option value="">Todos</option>
+            <ng-container *ngIf="opcionesSubFiltros.hechos && opcionesSubFiltros.hechos.length; else sinHechos">
+              <option *ngFor="let hecho of opcionesSubFiltros.hechos" [value]="hecho">{{ hecho }}</option>
+            </ng-container>
+          </select>
+          <ng-template #sinHechos>
+            <option disabled value="">No hay hechos disponibles</option>
+          </ng-template>
+
+        </label>
+        <label class="coordinate-input-card subfilter-card">
+          <span>Estrategia</span>
+          <select name="estrategia" [(ngModel)]="filtrosForm.estrategiasAfecta">
+            <option value="">Todas</option>
+            <ng-container
+              *ngIf="opcionesSubFiltros.estrategiasAfecta && opcionesSubFiltros.estrategiasAfecta.length; else sinEstrategias">
+              <option *ngFor="let estrategia of opcionesSubFiltros.estrategiasAfecta" [value]="estrategia">{{ estrategia
+                }}</option>
+            </ng-container>
+          </select>
+          <ng-template #sinEstrategias>
+            <option disabled value="">No hay estrategias disponibles</option>
+          </ng-template>
+
+        </label>
+        <label class="coordinate-input-card subfilter-card">
+          <span>Resultados Gaulas</span>
+          <select name="resultadosGaulas" [(ngModel)]="filtrosForm.resultadosGaulas">
+            <option value="">Todas</option>
+            <ng-container
+              *ngIf="opcionesSubFiltros.resultadosGaulas && opcionesSubFiltros.resultadosGaulas.length; else sinResultadosGaulas">
+              <option *ngFor="let resultado of opcionesSubFiltros.resultadosGaulas" [value]="resultado">{{ resultado }}
+              </option>
+            </ng-container>
+          </select>
+          <ng-template #sinResultadosGaulas>
+            <option disabled value="">No hay resultados disponibles</option>
+          </ng-template>
+        </label>
+        <label class="coordinate-input-card subfilter-card">
+          <span>Resultados Coordinados</span>
+          <select name="resultadosCoordinados" [(ngModel)]="filtrosForm.resultadosCoordinados">
+            <option value="">Todas</option>
+            <ng-container
+              *ngIf="opcionesSubFiltros.resultadosCoordinados && opcionesSubFiltros.resultadosCoordinados.length; else sinResultadosCoordinados">
+              <option *ngFor="let resultado of opcionesSubFiltros.resultadosCoordinados" [value]="resultado">{{
+                resultado }}</option>
+            </ng-container>
+          </select>
+          <ng-template #sinResultadosCoordinados>
+            <option disabled value="">No hay resultados disponibles</option>
+          </ng-template>
+        </label>
+        <label class="coordinate-input-card subfilter-card">
+          <span>Resultados Conjuntos</span>
+          <select name="resultadosConjuntos" [(ngModel)]="filtrosForm.resultadosConjuntos">
+            <option value="">Todas</option>
+            <ng-container
+              *ngIf="opcionesSubFiltros.resultadosConjuntos && opcionesSubFiltros.resultadosConjuntos.length; else sinResultadosConjuntos">
+              <option *ngFor="let resultado of opcionesSubFiltros.resultadosConjuntos" [value]="resultado">{{ resultado
+                }}</option>
+            </ng-container>
+          </select>
+          <ng-template #sinResultadosConjuntos>
+            <option disabled value="">No hay resultados disponibles</option>
+          </ng-template>
+        </label>
+
+
+
+
+      </div>
+      <div class="coordinate-modal-actions subfilters-actions">
+        <button type="button" class="map-action-button" (click)="cerrarSelectorOperacionalModal()">Cerrar</button>
+      </div>
+    </div>
+  </div>
+
+
+  <!-- ========================================= -->
+  <!-- Documentos de Infraestructura -->
+  <!--========================================= -->
+
+  <div class="subfilter-nested-backdrop" *ngIf="mostrarSelectordocumentosInfraestructuraModal"
+    (click)="cerrarInfraestructuraModal()">
+    <div class="subfilter-nested-modal" (click)="$event.stopPropagation()">
+      <div class="popup-modal-head">
+        <div>
+          <span class="card-kicker">Infraestructura</span>
+          <h2>Documentos de Infraestructura</h2>
+        </div>
+        <button class="popup-close" type="button" aria-label="Cerrar selector de unidades"
+          (click)="cerrarInfraestructuraModal()">&times;</button>
+      </div>
+      <p class="map-modal-text">Selecciona el Documento de Infraestructura.
+      </p>
+
+      <!-- LISTADO -->
+
+      <div class="apoyos-radio-grid">
+
+        <label class="apoyo-radio-card" *ngFor="let documento of documentosInfraestructura">
+
+          <input type="radio" name="documentoInfraSeleccionado" [value]="documento"
+            [(ngModel)]="documentoInfraSeleccionado">
+
+          <div class="apoyo-radio-content">
+
+            <div class="apoyo-radio-indicator"></div>
+
+            <div class="apoyo-radio-info">
+
+              <strong>
+                {{ documento.texto }}
+              </strong>
+
+              <small>
+                {{ documento.id }}
+              </small>
+
+            </div>
+
+          </div>
+
+        </label>
+
+      </div>
+
+      <!-- FOOTER -->
+
+
+
+      <div class="coordinate-modal-actions subfilters-actions">
+        <button type="button" class="map-action-button" (click)="cerrarInfraestructuraModal()">Cerrar</button>
       </div>
     </div>
   </div>

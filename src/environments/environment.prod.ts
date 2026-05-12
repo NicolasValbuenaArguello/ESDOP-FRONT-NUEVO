@@ -7,6 +7,7 @@ export const environment = {
     auth: '/login',
     usuarios: '/usuarios',
     dashboard: '/dashboard',
+    generar_pptx: '/generar_pptx',
     mapa: '/estadistica-mapa'
   }
 };

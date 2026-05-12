@@ -1,4 +1,6 @@
 
+
+
 // ...existing code...
 
 
@@ -6,7 +8,7 @@
 
 import { CommonModule, DOCUMENT } from '@angular/common';
 import { AfterViewInit, ChangeDetectorRef, Component, ElementRef, Inject, NgZone, OnDestroy, ViewChild } from '@angular/core';
-import { FormsModule } from '@angular/forms';
+import { FormsModule, Validators } from '@angular/forms';
 import html2canvas from 'html2canvas';
 // @ts-ignore
 import leafletImage from 'leaflet-image';
@@ -68,6 +70,19 @@ type MapLegendItem = {
   styleUrls: ['./estadisticas.component.css']
 })
 export class EstadisticasComponent implements AfterViewInit, OnDestroy {
+  // --- CAMBIO: Operaciones cargadas desde unidades-tree.service ---
+  operaciones: string[] = [];
+  // tiposOperacion eliminado, usar solo opcionesSubFiltros.tipoOperaciones
+
+  /**
+   * CAMBIO: Cargar operaciones desde unidades-tree.service y mostrarlas en consola
+   */
+  cargarOperacionesDesdeServicio() {
+    this.operaciones = this.unidadesTreeService.obtenerNombresOperacionDesdeStorage();
+    // Mostrar en consola para depuración
+    console.log('Operaciones cargadas:', this.operaciones);
+  }
+  // cargarTiposOperacionDesdeServicio eliminado, usar solo opcionesSubFiltros.tipoOperaciones
   /**
    * Devuelve el texto del apoyo seleccionado según apoyosUnificados.
    */
@@ -78,6 +93,20 @@ export class EstadisticasComponent implements AfterViewInit, OnDestroy {
     const apoyo = this.apoyosUnificados.find(a => a.id === apoyoId);
     return apoyo ? apoyo.texto : '';
   }
+
+    /**
+   * Devuelve documento Selecionado de infraestructura.
+   */
+  getTextoDocumentoInfraSeleccionado(): string {
+    if (!this.documentoInfraSeleccionado || typeof this.documentoInfraSeleccionado !== 'object') return '';
+    const documentoId = this.documentoInfraSeleccionado.id;
+    if (!documentoId) return '';
+    const documento = this.documentosInfraestructura.find(d => d.id === documentoId);
+    return documento ? documento.texto : '';
+  }
+
+
+  // El método ngOnInit debe estar solo una vez. Integramos la carga de operaciones en el ngOnInit principal.
   // ...existing code...
 
 
@@ -87,6 +116,7 @@ export class EstadisticasComponent implements AfterViewInit, OnDestroy {
   subregiones: any[] = [];
   subregionSeleccionada: any = null;
   departamentoSeleccionado: any = null;
+
 
   apoyosUnificados = [
     // Apoyos de unidad ya estructurados
@@ -113,9 +143,11 @@ export class EstadisticasComponent implements AfterViewInit, OnDestroy {
     { id: 'hop_apoyo_brcmi', valor: 'SI', texto: 'UNIDAD BRCMI' }
 
   ];
-
-
-
+ documentosInfraestructura= [
+    { id: 'infraestructuraCede3', valor: 'infraestructuraCede3', texto: 'Infraestructura Diseño CEDE3' },
+    { id: 'infraestructuraDirop', valor: 'infraestructuraDirop', texto: 'Infraestructura Diseño DIROP' },
+    { id: 'infraestructuraEjc', valor: 'infraestructuraEjc', texto: 'Infraestructura Diseño EJC' },
+ ];
 
 
   apoyoSeleccionado: {
@@ -123,6 +155,12 @@ export class EstadisticasComponent implements AfterViewInit, OnDestroy {
     valor: string;
     texto: string;
   } | null = null;
+documentoInfraSeleccionado: {
+    id: string;
+    valor: string;
+    texto: string;
+  } | null = null;
+
 
   abrirSubregionesModal() {
     this.mostrarSubregionesModal = true;
@@ -206,13 +244,16 @@ export class EstadisticasComponent implements AfterViewInit, OnDestroy {
   readonly allTypesToken = '__ALL_TYPES__';
 
   private api = `${environment.apiBase}${environment.services?.dashboard ?? '/dashboard'}`;
+  private api_2 = `${environment.apiBase}${environment.services?.generar_pptx ?? '/generar_pptx'}`;
   mostrarPivotModal = false;
 
   mostrarGraficasModal = false;
   mostrarTablaModal = false;
   mostrarResumenModal = false;
   mostrarSubFiltrosModal = false;
+  mostrarDocumentosModal = false;
   mostrarSelectorUnidadesModal = false;
+  mostrarSelectordocumentosInfraestructuraModal = false;
   mostrarSelectorLugarModal = false;
   mostrarSelectorEnemigoModal = false;
   exportingMapImage = false;
@@ -394,11 +435,17 @@ export class EstadisticasComponent implements AfterViewInit, OnDestroy {
     subFiltroMunicipio: [] as string[],
     subFiltroEnemigo: [] as string[],
     subFiltroEnemigoEstructura: [] as string[],
-    subFiltroOperaciones: [] as string[],
+    subFiltroOperaciones: '',
     subFiltroEstado: '',
     documentosTipo: '',
     documentosOrigen: '',
     documentosClasificacion: '',
+    tiposOperacion: '',
+    hechos: '',
+    estrategiasAfecta: '',
+    resultadosGaulas: '',
+    resultadosCoordinados: '',
+    resultadosConjuntos: ''
   };
 
   // --- NUEVO: Datos dinámicos de ejemplo ---
@@ -411,6 +458,9 @@ export class EstadisticasComponent implements AfterViewInit, OnDestroy {
   categoriaSeleccionada: string | null = null;
   cargandoDashboard = false;
   dashboardStatusMsg = '';
+
+  descargadoDocumentoStatusMsg = '';
+  descargandoDocumento = false;
 
   // Paleta de colores para tipos
   readonly palette = [
@@ -469,6 +519,12 @@ export class EstadisticasComponent implements AfterViewInit, OnDestroy {
     enemigosEstructura: [] as string[],
     estados: ['Activo', 'En revision', 'Pendiente', 'Cerrado'],
     operaciones: [] as string[],
+    tiposOperacion: [] as string[],
+    hechos: [] as string[],
+    estrategiasAfecta: [] as string[],
+    resultadosGaulas: ['Gaulas', 'No Gaulas'],
+    resultadosCoordinados: ['SI', 'NO'],
+    resultadosConjuntos: ['SI', 'NO']
   };
   private mapaEnemigoEstructura: Record<string, string[]> = {};
 
@@ -486,6 +542,11 @@ export class EstadisticasComponent implements AfterViewInit, OnDestroy {
     // del componente sin depender del sidebar.
     this.permisoEstadisticas = this.auth.obtenerPermisoRuta('/estadisticas');
     this.cargarOpcionesSubFiltrosDesdeUsuario();
+    this.cargarOperacionesDesdeServicio(); // <-- Cargar operaciones aquí
+    // Siempre cargar tipos de operación desde localStorage al iniciar
+    this.opcionesSubFiltros.tiposOperacion = this.unidadesTreeService.obtenerNombresTipoOperacionDesdeStorage();
+    this.opcionesSubFiltros.hechos = this.unidadesTreeService.obtenerNombresHechoDesdeStorage();
+    this.opcionesSubFiltros.estrategiasAfecta = this.unidadesTreeService.obtenerNombresEstrategiaAfectaDesdeStorage();
     this.cargandoDashboard = false;
     this.dashboardStatusMsg = 'Selecciona las fechas y consulta el dashboard.';
     // Cargar subregiones dinámicamente desde el backend/localStorage
@@ -500,6 +561,9 @@ export class EstadisticasComponent implements AfterViewInit, OnDestroy {
       next: (resp) => {
         // Espera que resp tenga la forma { eventos: Evento[] } o similar
         let eventosRaw = resp?.eventos;
+        // LOG de depuración: mostrar respuesta completa y eventosRaw
+        console.log('Respuesta backend:', resp);
+        console.log('eventosRaw:', eventosRaw);
         if (!Array.isArray(eventosRaw)) {
           // Si el backend devuelve un objeto, intenta convertirlo a array
           if (eventosRaw && typeof eventosRaw === 'object') {
@@ -508,6 +572,19 @@ export class EstadisticasComponent implements AfterViewInit, OnDestroy {
             eventosRaw = [];
           }
         }
+        // Extraer y asignar los tipos de operación únicos desde backend
+        let tiposOperacion = Array.from(
+          new Set((eventosRaw as any[]).map(ev => ev.tipo_operacion).filter(Boolean))
+        ).sort((a, b) => a.localeCompare(b));
+        // Si no hay tipos desde backend, usar los del localStorage
+        if (!tiposOperacion.length) {
+          tiposOperacion = this.unidadesTreeService.obtenerNombresTipoOperacionDesdeStorage();
+        }
+        this.opcionesSubFiltros.tiposOperacion = tiposOperacion;
+        // LOG de depuración: mostrar tiposOperacion y opcionesSubFiltros.tiposOperacion
+        console.log('tiposOperacion extraídos:', tiposOperacion);
+        console.log('opcionesSubFiltros.tiposOperacion:', this.opcionesSubFiltros.tiposOperacion);
+
         this.eventos = eventosRaw.map((ev: any) => {
           // El backend anida puntos por división, hay que aplanar y normalizar tipos
           let puntos: any[] = [];
@@ -1086,11 +1163,21 @@ export class EstadisticasComponent implements AfterViewInit, OnDestroy {
   abrirSubFiltrosModal() {
     this.mostrarSubFiltrosModal = true;
   }
-
+  abrirDocumentosFiltrosModal() {
+    this.mostrarDocumentosModal = true;
+  }
+  cerrarDocumentosFiltrosModal() {
+    this.mostrarDocumentosModal = false;
+  }
   abrirSelectorUnidadesModal() {
     this.mostrarSelectorUnidadesModal = true;
   }
-
+  abrirInfraestructuraModal() {
+    this.mostrarSelectordocumentosInfraestructuraModal = true;
+  }
+  cerrarInfraestructuraModal() {
+    this.mostrarSelectordocumentosInfraestructuraModal = false;
+  }
   abrirSelectorLugarModal() {
     this.mostrarSelectorLugarModal = true;
   }
@@ -1129,7 +1216,9 @@ export class EstadisticasComponent implements AfterViewInit, OnDestroy {
     this.mostrarSelectorLugarModal = false;
     this.mostrarSelectorEnemigoModal = false;
   }
-
+ cerrarSelectorDocumentosModal() {
+    this.mostrarDocumentosModal = false;
+  }
   cerrarSelectorUnidadesModal() {
     this.mostrarSelectorUnidadesModal = false;
   }
@@ -1162,9 +1251,22 @@ export class EstadisticasComponent implements AfterViewInit, OnDestroy {
     this.actualizarOpcionesLugar();
     this.actualizarOpcionesEnemigo();
     this.apoyoSeleccionado = null;
+    this.filtrosForm.subFiltroOperaciones = '';
+    this.filtrosForm.tiposOperacion = '';
+    this.filtrosForm.hechos = '';
+    this.filtrosForm.estrategiasAfecta = '';
+    this.filtrosForm.resultadosGaulas = '';
+    this.filtrosForm.resultadosCoordinados = '';
+    this.filtrosForm.resultadosConjuntos = '';
 
   }
+  limpiarDocumentos() {
 
+ 
+    this.documentoInfraSeleccionado = null;
+
+
+  }
   private cargarOpcionesSubFiltrosDesdeUsuario() {
     const registros = this.unidadesTreeService.normalizarRegistros(this.auth.obtenerUnidadesUsuario());
     const divisionesFt = registros.map((item) => item.agr_div);
@@ -1173,6 +1275,17 @@ export class EstadisticasComponent implements AfterViewInit, OnDestroy {
     this.actualizarOpcionesSubFiltrosOperativos();
     this.actualizarOpcionesLugar();
     this.actualizarOpcionesEnemigo();
+
+    // OPERACIONES: Obtener el catálogo plano de operaciones igual que enemigo
+    this.opcionesSubFiltros.operaciones = this.obtenerOperacionesUsuario();
+  }
+
+  /**
+   * Devuelve el catálogo plano de operaciones del usuario, igual que enemigo
+   */
+  obtenerOperacionesUsuario(): string[] {
+    // Se puede ajustar el storageKey si es diferente
+    return this.obtenerCatalogoPlanoDesdeStorage(['operacion'], ['operacion', 'operación', 'nombre', 'valor', 'descripcion']);
   }
 
   onSubFiltroDivisionFtChange() {
@@ -1427,6 +1540,10 @@ export class EstadisticasComponent implements AfterViewInit, OnDestroy {
     this.mostrarSubFiltrosModal = false;
     this.cdr.markForCheck();
   }
+  aplicarDocumentos() {
+    this.mostrarDocumentosModal = false;
+    this.cdr.markForCheck();
+  }
 
   getResumenJerarquiaUnidades(): string[] {
     const resumen: string[] = [];
@@ -1467,6 +1584,7 @@ export class EstadisticasComponent implements AfterViewInit, OnDestroy {
   getResumenEnemigo(): string[] {
     const resumen: string[] = [];
 
+
     for (const enemigo of this.filtrosForm.subFiltroEnemigo) {
       resumen.push(`Enemigo: ${enemigo}`);
     }
@@ -1477,10 +1595,135 @@ export class EstadisticasComponent implements AfterViewInit, OnDestroy {
 
     return resumen;
   }
+
   getResumenJerarquiaOperacional(): string[] {
     const resumen: string[] = [];
+    // Si hay una operación seleccionada, mostrarla en el resumen
+    if (this.filtrosForm.subFiltroOperaciones) {
+      resumen.push(`Operación: ${this.getOperacionSeleccionadaNombre()}`);
+    }
+    // Si hay un tipo de operación seleccionado, mostrarlo en el resumen
+    if (this.filtrosForm.tiposOperacion) {
+      resumen.push(`Tipo de operación: ${this.getTipoOperacionSeleccionadoNombre()}`);
+    }
+    // Si hay un hecho seleccionado, mostrarlo en el resumen
+    if (this.filtrosForm.hechos) {
+      resumen.push(`Hecho: ${this.getHechoSeleccionadoNombre()}`);
+    }
+        // Si hay un hecho seleccionado, mostrarlo en el resumen
+    if (this.filtrosForm.hechos) {
+      resumen.push(`Hecho: ${this.getHechoSeleccionadoNombre()}`);
+    }
+    // Si hay una estrategia afectada seleccionada, mostrarla en el resumen
+    if (this.filtrosForm.estrategiasAfecta) {
+      resumen.push(`Estrategia afectada: ${this.getEstrategiaAfectaSeleccionadaNombre()}`);
+    }
+    // Si hay un resultado Gaulas seleccionado, mostrarlo en el resumen
+    if (this.filtrosForm.resultadosGaulas) {
+      resumen.push(`Resultado Gaulas: ${this.getResultadoGaulasSeleccionadoNombre()}`);
+    }
+    // Si hay un resultado Coordinado seleccionado, mostrarlo en el resumen
+    if (this.filtrosForm.resultadosCoordinados) {
+      resumen.push(`Resultado Coordinado: ${this.getResultadoCoordinadoSeleccionadoNombre()}`);
+    }
+    // Si hay un resultado Conjunto seleccionado, mostrarlo en el resumen
+    if (this.filtrosForm.resultadosConjuntos) {
+      resumen.push(`Resultado Conjunto: ${this.getResultadoConjuntoSeleccionadoNombre()}`);
+    }
     return resumen;
   }
+      /**
+   * Devuelve el nombre del resultado Conjunto seleccionado, si existe.
+   */
+  getResultadoConjuntoSeleccionadoNombre(): string {
+    const resultado = this.filtrosForm.resultadosConjuntos;
+    if (!resultado) return '';
+    // Buscar el nombre en el array de opciones
+    const found = this.opcionesSubFiltros.resultadosConjuntos.find(o => o === resultado);
+    return found || resultado;
+  }
+  /**
+   * Devuelve el nombre del resultado Coordinado seleccionado, si existe.
+   */
+  getResultadoCoordinadoSeleccionadoNombre(): string {
+    const resultado = this.filtrosForm.resultadosCoordinados;
+    if (!resultado) return '';
+    // Buscar el nombre en el array de opciones
+    const found = this.opcionesSubFiltros.resultadosCoordinados.find(o => o === resultado);
+    return found || resultado;
+  }
+  /**
+   * Devuelve el nombre del resultado Gaulas seleccionado, si existe.
+   */
+  getResultadoGaulasSeleccionadoNombre(): string {
+    const resultado = this.filtrosForm.resultadosGaulas;
+    if (!resultado) return '';
+    // Buscar el nombre en el array de opciones
+    const found = this.opcionesSubFiltros.resultadosGaulas.find(o => o === resultado);
+    return found || resultado;
+  }
+    /**
+   * Devuelve el nombre de la estrategia afectada seleccionada, si existe.
+   */
+  getEstrategiaAfectaSeleccionadaNombre(): string {
+    const estrategia = this.filtrosForm.estrategiasAfecta;
+    if (!estrategia) return '';
+    // Buscar el nombre en el array de opciones
+    const found = this.opcionesSubFiltros.estrategiasAfecta.find(o => o === estrategia);
+    return found || estrategia;
+  }
+  /**
+   * Devuelve el nombre del hecho seleccionado, si existe.
+   */
+  getHechoSeleccionadoNombre(): string {
+    const hecho = this.filtrosForm.hechos;
+    if (!hecho) return '';
+    // Buscar el nombre en el array de opciones
+    const found = this.opcionesSubFiltros.hechos.find(o => o === hecho);
+    return found || hecho;
+  }
+
+  /**
+   * Devuelve el nombre del tipo de operación seleccionado, si existe.
+   */
+  getTipoOperacionSeleccionadoNombre(): string {
+    const tipo = this.filtrosForm.tiposOperacion;
+    if (!tipo) return '';
+    // Buscar el nombre en el array de opciones
+    const found = this.opcionesSubFiltros.tiposOperacion.find(o => o === tipo);
+    return found || tipo;
+  }
+
+  /**
+   * Devuelve el nombre de la operación seleccionada, si existe.
+   */
+  getOperacionSeleccionadaNombre(): string {
+    const op = this.filtrosForm.subFiltroOperaciones;
+    if (!op) return '';
+    // Buscar el nombre en el array de opciones
+    const found = this.opcionesSubFiltros.operaciones.find(o => o === op);
+    return found || op;
+  }
+  
+    getResumenDocumentosAplicados(): string[] {
+    const resumen = [
+
+      ...this.getDocSeleccionadosInfraestrucura().map(Documento => ` ${Documento.texto}`),
+
+    ];
+
+
+    return resumen;
+  }
+  getDocSeleccionadosInfraestrucura() {
+
+    if (!this.documentoInfraSeleccionado) {
+      return [];
+    }
+
+    return [this.documentoInfraSeleccionado];
+  }
+
   getResumenSubFiltrosAplicados(): string[] {
     const resumen = [
       ...this.getResumenJerarquiaUnidades(),
@@ -1512,6 +1755,10 @@ export class EstadisticasComponent implements AfterViewInit, OnDestroy {
 
   tieneSubFiltrosActivos(): boolean {
     return this.getResumenSubFiltrosAplicados().length > 0;
+  }
+  tieneDocumentosActivos(): boolean {
+    
+    return this.getResumenDocumentosAplicados().length > 0;
   }
 
   cambiarSistemaCoordenadas(system: CoordinateSystem) {
@@ -2088,8 +2335,6 @@ export class EstadisticasComponent implements AfterViewInit, OnDestroy {
       return;
     }
 
-    console.log(this.filtrosForm);
-    console.log(this.filtrosForm.subFiltroDivisiones);
     const formData = new FormData();
     formData.append('fecha_inicio', rangoFechas.fechaInicio);
     formData.append('fecha_fin', rangoFechas.fechaFin);
@@ -2139,10 +2384,7 @@ export class EstadisticasComponent implements AfterViewInit, OnDestroy {
       'apoyos',
       JSON.stringify(this.apoyoSeleccionado || [])
     );
-    // Aquí puedes agregar más filtros en el futuro:
-    // formData.append('otro_filtro', this.filtrosForm.otroFiltro);
-
-    formData.append(
+        formData.append(
       'subFiltroEnemigo',
       JSON.stringify(this.filtrosForm.subFiltroEnemigo || '')
     );
@@ -2152,6 +2394,35 @@ export class EstadisticasComponent implements AfterViewInit, OnDestroy {
       JSON.stringify(this.filtrosForm.subFiltroEnemigoEstructura || '')
     );
 
+    formData.append(
+      'operacion',
+      JSON.stringify(this.filtrosForm.subFiltroEnemigoEstructura || '')
+    );
+
+    formData.append(
+      'tipoOperacion',
+      JSON.stringify(this.filtrosForm.tiposOperacion || '')
+    );
+    formData.append(
+      'hecho',
+      JSON.stringify(this.filtrosForm.hechos || '')
+    );
+    formData.append(
+      'estrategiaAfecta',
+      JSON.stringify(this.filtrosForm.estrategiasAfecta || '')
+    );
+    formData.append(
+      'resultadosGaulas',
+      JSON.stringify(this.filtrosForm.resultadosGaulas || '')
+    );
+    formData.append(
+      'resultadosCoordinados',
+      JSON.stringify(this.filtrosForm.resultadosCoordinados || '')
+    );
+    formData.append(
+      'resultadosConjuntos',
+      JSON.stringify(this.filtrosForm.resultadosConjuntos || '')
+    );
     this.cargandoDashboard = true;
     this.dashboardStatusMsg = 'Actualizando dashboard...';
 
@@ -2227,6 +2498,33 @@ export class EstadisticasComponent implements AfterViewInit, OnDestroy {
 
     return { fechaInicio, fechaFin };
   }
+
+   private obtenerRangoFechasDashboard_2() {
+    const fechaInicio = this.filtrosForm.lapsoFinalA;
+    const fechaFin = this.filtrosForm.lapsoFinalB;
+
+    if (!fechaInicio || !fechaFin) {
+      this.dashboardErrorMsg = 'Debes seleccionar ambas fechas.';
+      setTimeout(() => {
+        const inicioInput = document.querySelector('input[name="lapsoFinalA"]') as HTMLInputElement;
+        const finInput = document.querySelector('input[name="lapsoFinalB"]') as HTMLInputElement;
+        if (inicioInput && !fechaInicio) inicioInput.classList.add('input-error');
+        if (finInput && !fechaFin) finInput.classList.add('input-error');
+      }, 0);
+      alert('Debes seleccionar ambas fechas.');
+      return null;
+    }
+
+    this.dashboardErrorMsg = '';
+    const inicioInput = document.querySelector('input[name="lapsoFinalA"]') as HTMLInputElement;
+    const finInput = document.querySelector('input[name="lapsoFinalB"]') as HTMLInputElement;
+    if (inicioInput) inicioInput.classList.remove('input-error');
+    if (finInput) finInput.classList.remove('input-error');
+
+    return { fechaInicio, fechaFin };
+  }
+
+  
 
   private reconstruirColeccionesDashboard() {
     this.categorias = Array.from(new Set(this.eventos.map((evento) => evento.categoria)));
@@ -2390,4 +2688,298 @@ export class EstadisticasComponent implements AfterViewInit, OnDestroy {
     document.documentElement.style.setProperty('--tooltip-mouse-x', '50vw');
     document.documentElement.style.setProperty('--tooltip-mouse-y', '0px');
   }
+
+
+descargar_documento(): void {
+
+  // ==========================================
+  // RANGO FECHAS
+  // ==========================================
+
+  const rangoFechas =
+    this.obtenerRangoFechasDashboard();
+
+  const rangoFechasFinal =
+    this.obtenerRangoFechasDashboard_2();
+
+  if (!rangoFechasFinal) {
+    return;
+  }
+  if (!rangoFechas) {
+    return;
+  }
+    if (!this.documentoInfraSeleccionado) {
+    return;
+  }
+
+  // ==========================================
+  // FORM DATA
+  // ==========================================
+
+  const formData = new FormData();
+
+  formData.append(
+    'fecha_inicio',
+    rangoFechas.fechaInicio
+  );
+
+  formData.append(
+    'fecha_fin',
+    rangoFechas.fechaFin
+  );
+
+  formData.append(
+    'fecha_inicio_final',
+    rangoFechasFinal.fechaInicio
+  );
+  formData.append(
+    'fecha_fin_final',
+    rangoFechasFinal.fechaFin
+  );
+
+  // ==========================================
+  // FILTROS MILITARES
+  // ==========================================
+
+  formData.append(
+    'subFiltroDivisionesFt',
+    JSON.stringify(
+      this.filtrosForm.subFiltroDivisionesFt || ''
+    )
+  );
+
+  formData.append(
+    'subFiltroDivisiones',
+    JSON.stringify(
+      this.filtrosForm.subFiltroDivisiones || ''
+    )
+  );
+
+  formData.append(
+    'subFiltroBrigadas',
+    JSON.stringify(
+      this.filtrosForm.subFiltroBrigadas || []
+    )
+  );
+
+  formData.append(
+    'subFiltroBatallones',
+    JSON.stringify(
+      this.filtrosForm.subFiltroBatallones || []
+    )
+  );
+
+  // ==========================================
+  // GEOGRAFICOS
+  // ==========================================
+
+  formData.append(
+    'subFiltroDepartamento',
+    JSON.stringify(
+      this.filtrosForm.subFiltroDepartamento || []
+    )
+  );
+
+  formData.append(
+    'subFiltroMunicipio',
+    JSON.stringify(
+      this.filtrosForm.subFiltroMunicipio || []
+    )
+  );
+
+  formData.append(
+    'subregion',
+    JSON.stringify(
+      this.subregionSeleccionada || null
+    )
+  );
+
+  // ==========================================
+  // ENEMIGO
+  // ==========================================
+
+  formData.append(
+    'enemigo',
+    JSON.stringify(
+      this.filtrosForm.subFiltroEnemigo || []
+    )
+  );
+
+  formData.append(
+    'enemigo_estructura',
+    JSON.stringify(
+      this.filtrosForm.subFiltroEnemigoEstructura || []
+    )
+  );
+
+  // ==========================================
+  // APOYOS
+  // ==========================================
+
+  formData.append(
+    'apoyos',
+    JSON.stringify(
+      this.apoyoSeleccionado || null
+    )
+  );
+
+  // ==========================================
+  // OPERACION
+  // ==========================================
+
+  formData.append(
+    'operacion',
+    JSON.stringify(
+      this.filtrosForm.subFiltroOperaciones || []
+    )
+  );
+
+  // ==========================================
+  // OTROS FILTROS
+  // ==========================================
+
+  formData.append(
+    'tipoOperacion',
+    JSON.stringify(
+      this.filtrosForm.tiposOperacion || []
+    )
+  );
+
+  formData.append(
+    'hecho',
+    JSON.stringify(
+      this.filtrosForm.hechos || []
+    )
+  );
+
+  formData.append(
+    'estrategiaAfecta',
+    JSON.stringify(
+      this.filtrosForm.estrategiasAfecta || []
+    )
+  );
+
+  formData.append(
+    'resultadosGaulas',
+    JSON.stringify(
+      this.filtrosForm.resultadosGaulas || ''
+    )
+  );
+
+  formData.append(
+    'resultadosCoordinados',
+    JSON.stringify(
+      this.filtrosForm.resultadosCoordinados || ''
+    )
+  );
+
+  formData.append(
+    'resultadosConjuntos',
+    JSON.stringify(
+      this.filtrosForm.resultadosConjuntos || ''
+    )
+  );
+
+  // ==========================================
+  // DOCUMENTO
+  // ==========================================
+
+  formData.append(
+    'documento',
+    JSON.stringify(
+      this.documentoInfraSeleccionado || ''
+    )
+  );
+
+  // ==========================================
+  // UI
+  // ==========================================
+
+  this.cargandoDashboard = true;
+
+  this.dashboardStatusMsg =
+    'Generando documento...';
+
+  // ==========================================
+  // REQUEST
+  // ==========================================
+
+  this.http.post(
+
+    this.api_2,
+
+    formData,
+
+    {
+      responseType: 'blob'
+    }
+
+  ).pipe(
+
+    catchError(error => {
+
+      console.error(
+        'Error al descargar documento:',
+        error
+      );
+
+      this.descargadoDocumentoStatusMsg =
+        'No fue posible descargar el documento.';
+
+      this.descargandoDocumento = false;
+
+      return throwError(() => error);
+    })
+
+  ).subscribe({
+
+    // ==========================================
+    // SUCCESS
+    // ==========================================
+
+    next: (blob: Blob) => {
+
+      const url =
+        window.URL.createObjectURL(blob);
+
+      const a =
+        document.createElement('a');
+
+      a.href = url;
+
+      a.download =
+        'reporte_operacional.pptx';
+
+      document.body.appendChild(a);
+
+      a.click();
+
+      a.remove();
+
+      window.URL.revokeObjectURL(url);
+
+      // ==========================================
+      // UI
+      // ==========================================
+
+      this.descargadoDocumentoStatusMsg =
+        'Documento descargado correctamente.';
+
+      this.descargandoDocumento = false;
+    },
+
+
+    // ==========================================
+    // ERROR
+    // ==========================================
+
+    error: () => {
+
+      this.dashboardStatusMsg =
+        'Error descargando documento.';
+
+      this.cargandoDashboard = false;
+    }
+  });
+}
 }

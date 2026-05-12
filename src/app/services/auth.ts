@@ -295,9 +295,15 @@ export class AuthService {
         : user.enemigo
     );
 
+    // --- CORRECCIÓN: Mapear hop_operacion a operacion antes de normalizar ---
+    let operacionesRaw = user.operacion;
+    if (Array.isArray(operacionesRaw) && operacionesRaw.length && operacionesRaw[0]?.hop_operacion) {
+      operacionesRaw = operacionesRaw.map((item: any) => ({ operacion: item.hop_operacion }));
+    }
+
     localStorage.setItem('enemigo', JSON.stringify(enemigosNormalizados));
     localStorage.setItem('enemigo_estructura', JSON.stringify(estructurasNormalizadas));
-    localStorage.setItem('operacion', JSON.stringify(this.unidadesTreeService.normalizarOperacion(user.operacion)));
+    localStorage.setItem('operacion', JSON.stringify(this.unidadesTreeService.normalizarOperacion(operacionesRaw)));
     localStorage.setItem('estrategia_afecta', JSON.stringify(this.unidadesTreeService.normalizarEstrategiaAfecta(user.estrategia_afecta)));
     localStorage.setItem('tipo_operacion', JSON.stringify(this.unidadesTreeService.normalizarTipoOperacion(user.tipo_operacion)));
     localStorage.setItem('hecho', JSON.stringify(this.unidadesTreeService.normalizarHecho(user.hecho)));
@@ -337,7 +343,16 @@ export class AuthService {
   obtenerUnidadPermiso() {
     return localStorage.getItem('unida_per');
   }
-
+obtenerOperacionesUsuario(): unknown[] {
+    const raw = localStorage.getItem('operacion');
+    
+    try { 
+      const operaciones = raw ? JSON.parse(raw) : [];
+      return Array.isArray(operaciones) ? operaciones : [];
+    } catch {
+      return [];
+    }
+  }
   obtenerUnidadesUsuario(): unknown[] {
     const raw = localStorage.getItem('unidades');
 
