@@ -1,8 +1,9 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
+import { environment } from '../../environments/environment';
 
-const API_URL = 'http://localhost:8001/usuarios';
+const API_URL = `${environment.apiBase}${environment.services?.backend?.usuarios ?? '/usuarios'}`;
 
 export interface Usuario {
   id: number;
@@ -46,7 +47,7 @@ export class UsuariosService {
   constructor(private http: HttpClient) {}
 
   listarUsuarios(): Observable<UsuarioListado[]> {
-    return this.http.get<UsuarioListado[]>('http://localhost:8001/usuarios');
+    return this.http.get<UsuarioListado[]>(API_URL);
   }
 
   obtenerUsuario(id: number): Observable<Usuario> {

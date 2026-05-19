@@ -1,0 +1,22 @@
+<header class="operational_header">
+  <div class="operational_copy">
+    <p class="operational_kicker">Seguimiento tactico</p>
+    <h1>{{ titulo }}</h1>
+    <p>{{ subtitulo }}</p>
+  </div>
+
+  <div class="operational_meta">
+    <div class="operational_chips" *ngIf="resumen.length">
+      <span class="status_chip" *ngFor="let item of resumen">{{ item }}</span>
+    </div>
+
+    <div class="operational_actions">
+      <button type="button" class="topbar_button" (click)="toggleSidebar.emit()">Alternar menu</button>
+      <span class="status_chip status_chip_primary">{{ estadoSidebar }}</span>
+      <button type="button" class="topbar_button topbar_button_primary" (click)="abrirFiltros.emit()">
+        <i class="bi bi-funnel"></i>
+        Filtros
+      </button>
+    </div>
+  </div>
+</header>

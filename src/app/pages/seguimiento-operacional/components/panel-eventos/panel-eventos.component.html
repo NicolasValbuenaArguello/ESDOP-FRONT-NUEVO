@@ -1,0 +1,16 @@
+<section class="panel_block" *ngIf="timeline.length">
+  <div class="panel_block_head">
+    <span class="panel_badge">Eventos</span>
+    <h3>Secuencia operacional</h3>
+  </div>
+
+  <div class="timeline">
+    <article class="timeline_item" *ngFor="let item of timeline; trackBy: trackByTimeline">
+      <span class="timeline_hour">{{ item.hora }}</span>
+      <div>
+        <strong>{{ item.titulo }}</strong>
+        <p>{{ item.descripcion }}</p>
+      </div>
+    </article>
+  </div>
+</section>

@@ -668,6 +668,167 @@
   box-shadow: 0 14px 28px rgba(125, 0, 18, 0.22);
 }
 
+.sidebar-toggle:disabled,
+.map-action-button:disabled,
+.popup-btn:disabled,
+.filtro-btn:disabled,
+.coordinate-system-button:disabled,
+.document-download-button:disabled,
+.map-modal-close:disabled,
+.popup-download:disabled {
+  cursor: not-allowed;
+  opacity: 0.68;
+  transform: none;
+  box-shadow: none;
+  background: linear-gradient(180deg, rgba(245, 238, 235, 0.96), rgba(234, 226, 223, 0.94));
+  color: rgba(82, 50, 53, 0.7);
+  border-color: rgba(125, 0, 18, 0.08);
+}
+
+.request-status-glass {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin: 14px 0 18px;
+  padding: 14px 16px;
+  border-radius: 18px;
+  border: 1px solid rgba(125, 0, 18, 0.12);
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.9), rgba(255, 246, 242, 0.82));
+  box-shadow: 0 18px 38px rgba(125, 0, 18, 0.08);
+  backdrop-filter: blur(14px);
+}
+
+.request-status-glass strong {
+  display: block;
+  color: var(--wine);
+  font-size: 0.96rem;
+}
+
+.request-status-glass p {
+  margin: 4px 0 0;
+  color: var(--muted);
+  font-size: 0.88rem;
+}
+
+.request-status-spinner,
+.action-button__spinner {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.35);
+  border-top-color: currentColor;
+  border-right-color: rgba(255, 255, 255, 0.85);
+  animation: stats-button-spin 0.85s linear infinite;
+}
+
+.request-status-spinner {
+  width: 24px;
+  height: 24px;
+  flex: 0 0 24px;
+  color: var(--wine);
+  border-color: rgba(125, 0, 18, 0.16);
+  border-top-color: var(--wine);
+  border-right-color: #d35f72;
+}
+
+.action-button {
+  position: relative;
+  overflow: hidden;
+  min-width: 230px;
+}
+
+.action-button::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  background: linear-gradient(120deg, transparent 0%, rgba(255, 255, 255, 0.22) 45%, transparent 100%);
+  transform: translateX(-120%);
+  transition: opacity 0.2s ease;
+}
+
+.action-button--loading::after {
+  opacity: 1;
+  animation: stats-button-sheen 1.25s ease-in-out infinite;
+}
+
+.action-button__content {
+  position: relative;
+  z-index: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  width: 100%;
+}
+
+.action-button__badge {
+  display: inline-flex;
+  align-items: center;
+  min-height: 22px;
+  padding: 0 9px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.2);
+  font-size: 0.73rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.action-button--loading {
+  pointer-events: none;
+}
+
+.action-button--success {
+  background: linear-gradient(135deg, #156c44 0%, #28b463 100%);
+  color: #fff;
+  border-color: transparent;
+  box-shadow: 0 16px 32px rgba(40, 180, 99, 0.24);
+}
+
+.action-button--error {
+  background: linear-gradient(135deg, #8e1d2c 0%, #c63c53 100%);
+  color: #fff;
+  border-color: transparent;
+  box-shadow: 0 16px 32px rgba(198, 60, 83, 0.2);
+}
+
+.request-status-text {
+  margin-left: auto;
+  max-width: 340px;
+  padding: 10px 14px;
+  border-radius: 14px;
+  background: rgba(125, 0, 18, 0.06);
+  border: 1px solid rgba(125, 0, 18, 0.1);
+}
+
+.request-status-text--success {
+  background: rgba(40, 180, 99, 0.1);
+  border-color: rgba(40, 180, 99, 0.18);
+  color: #156c44;
+}
+
+.request-status-text--error {
+  background: rgba(198, 60, 83, 0.1);
+  border-color: rgba(198, 60, 83, 0.18);
+  color: #8e1d2c;
+}
+
+@keyframes stats-button-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes stats-button-sheen {
+  0% {
+    transform: translateX(-120%);
+  }
+  100% {
+    transform: translateX(120%);
+  }
+}
+
 .map-panel {
   border-radius: 30px;
   padding: 18px;
@@ -806,6 +967,30 @@
   word-break: normal;
   text-align: center;
   text-wrap: balance;
+}
+
+.toolbar-button-content {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+}
+
+.toolbar-spinner {
+  width: 15px;
+  height: 15px;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.35);
+  border-top-color: currentColor;
+  border-right-color: rgba(255, 255, 255, 0.82);
+  animation: toolbar-spin 0.85s linear infinite;
+}
+
+@keyframes toolbar-spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .map-capture-surface {
@@ -1678,6 +1863,13 @@
   .popup-modal-head,
   .map-modal-head {
     flex-direction: column;
+  }
+
+  .request-status-text,
+  .action-button {
+    width: 100%;
+    max-width: none;
+    margin-left: 0;
   }
 }
 

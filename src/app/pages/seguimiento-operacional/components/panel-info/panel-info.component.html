@@ -1,0 +1,90 @@
+<aside class="panel_info" *ngIf="seccion as actual">
+  <div class="panel_info_scroll">
+    <section class="panel_block">
+      <div class="panel_block_head">
+        <span class="panel_badge">Resumen tactico</span>
+        <h3>{{ actual.nombre }}</h3>
+      </div>
+      <p class="panel_copy">{{ actual.resumen }}</p>
+      <div class="chip_stack">
+        <span class="panel_chip" *ngFor="let capacidad of actual.capacidades; trackBy: trackByCapacidad">{{ capacidad }}</span>
+      </div>
+    </section>
+
+    <app-panel-alertas
+      [titulo]="actual.alertas.length + ' activas en la vista'"
+      [subtitulo]="'Alertas'"
+      [alertas]="actual.alertas">
+    </app-panel-alertas>
+
+    <section class="panel_block" *ngIf="actual.tabla.length">
+      <div class="panel_block_head">
+        <span class="panel_badge">Panel dinamico</span>
+        <h3>Tabla operacional</h3>
+      </div>
+
+      <div class="tabla_operacional">
+        <table>
+          <thead>
+            <tr>
+              <th>Unidad</th>
+              <th>Sector</th>
+              <th>Prioridad</th>
+              <th>Estado</th>
+              <th>Actualizacion</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let fila of actual.tabla; trackBy: trackByRow">
+              <td>{{ fila.unidad }}</td>
+              <td>{{ fila.sector }}</td>
+              <td>
+                <span class="tabla_badge" [class]="'tabla_badge tabla_badge_' + fila.prioridad">{{ fila.prioridad }}</span>
+              </td>
+              <td>{{ fila.estado }}</td>
+              <td>{{ fila.actualizacion }}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="panel_block" *ngIf="actual.timeline.length">
+      <div class="panel_block_head">
+        <span class="panel_badge">Secuencia</span>
+        <h3>Linea de tiempo</h3>
+      </div>
+
+      <div class="timeline">
+        <article class="timeline_item" *ngFor="let item of actual.timeline; trackBy: trackByTimeline">
+          <span class="timeline_hour">{{ item.hora }}</span>
+          <div>
+            <strong>{{ item.titulo }}</strong>
+            <p>{{ item.descripcion }}</p>
+          </div>
+        </article>
+      </div>
+    </section>
+
+    <section class="panel_block panel_block_future">
+      <div class="panel_block_head">
+        <span class="panel_badge">Preparado para crecer</span>
+        <h3>Graficas y widgets futuros</h3>
+      </div>
+      <div class="future_slots">
+        <article class="future_slot">
+          <strong>Graficas</strong>
+          <p>Espacio reservado para series temporales, KPIs y comparativos.</p>
+        </article>
+        <article class="future_slot">
+          <strong>Tiempo real</strong>
+          <p>Zona lista para WebSockets, eventos push y streaming operacional.</p>
+        </article>
+        <article class="future_slot">
+          <strong>Backend</strong>
+          <p>Estructura preparada para integrar FastAPI, filtros remotos y nuevas tarjetas.</p>
+        </article>
+      </div>
+    </section>
+  </div>
+</aside>

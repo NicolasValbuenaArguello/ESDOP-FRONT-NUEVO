@@ -106,6 +106,26 @@
                 <button *ngIf="puedeVerEstadisticasCrud" type="button" class="map-action-button"
                   (click)="exportDrawnData()">Descargar KML completo</button>
                 <button *ngIf="puedeVerEstadisticasCrud" type="button" class="map-action-button"
+                  [class.map-action-button-active]="tienePuntosFiltradosPorGeometria"
+                  [disabled]="!puedeDescargarPuntosExcel"
+                  [title]="hayGeometriasExportables ? 'Exporta los puntos dentro de las figuras dibujadas' : 'Dibuja una geometría para habilitar la exportación'"
+                  (click)="descargarPuntosFiltradosExcel()">
+                  <span class="toolbar-button-content">
+                    <span class="toolbar-spinner" *ngIf="exportandoPuntosExcel" aria-hidden="true"></span>
+                    <span>{{ exportandoPuntosExcel ? 'Generando Excel...' : 'Descargar Excel' }}</span>
+                  </span>
+                </button>
+                <button *ngIf="puedeVerEstadisticasCrud" type="button" class="map-action-button"
+                  [class.map-action-button-active]="tienePuntosFiltradosPorGeometria"
+                  [disabled]="!puedeDescargarPuntosKml"
+                  [title]="hayGeometriasExportables ? 'Exporta los puntos dentro de las figuras dibujadas' : 'Dibuja una geometría para habilitar la exportación'"
+                  (click)="descargarPuntosFiltradosKml()">
+                  <span class="toolbar-button-content">
+                    <span class="toolbar-spinner" *ngIf="exportandoPuntosKml" aria-hidden="true"></span>
+                    <span>{{ exportandoPuntosKml ? 'Generando KML...' : 'Descargar KML' }}</span>
+                  </span>
+                </button>
+                <button *ngIf="puedeVerEstadisticasCrud" type="button" class="map-action-button"
                   (click)="descargarMapaComoImagen()">
                   {{ exportingMapImage ? 'Generando imagen...' : 'Descargar imagen del mapa' }}
                 </button>
@@ -121,6 +141,10 @@
                 <!-- Botón para abrir la ventana de convenciones -->
                 <button *ngIf="puedeVerEstadisticasCrud" class="map-action-button"
                   (click)="mostrarConvencionesModal = true">Ver Convenciones</button>
+                <span *ngIf="puedeVerEstadisticasCrud" class="map-chip soft"
+                  [class.map-chip-alert]="hayGeometriasExportables && !tienePuntosFiltradosPorGeometria">
+                  {{ exportacionPuntosStatusMsg }}
+                </span>
               </div>
             </div>
 
@@ -837,6 +861,14 @@
           <div>
             <strong>Documentos a Generar</strong>
 
+            <div class="request-status-glass" *ngIf="hayPeticionActiva">
+              <span class="request-status-spinner" aria-hidden="true"></span>
+              <div>
+                <strong>Procesando solicitud</strong>
+                <p>{{ activeRequestLabel }}</p>
+              </div>
+            </div>
+
 
             <div class="document-download-card">
               <div>
@@ -845,11 +877,23 @@
               </div>
 
               <button *ngIf="puedeEditarEstadisticasCrud" type="button"
-                class="map-action-button map-action-button-active" (click)="descargar_documento()"
-                [disabled]="descargandoDocumento" >
-                {{ descargandoDocumento ? 'Descargando...' : 'Descargar documento' }}
+                class="map-action-button map-action-button-active action-button"
+                [class.action-button--loading]="isActionLoading('download')"
+                [class.action-button--success]="isActionSuccess('download')"
+                [class.action-button--error]="isActionError('download')"
+                (click)="descargar_documento()"
+                [disabled]="!puedeDescargarDocumento">
+                <span class="action-button__content">
+                  <span class="action-button__spinner" *ngIf="isActionLoading('download')" aria-hidden="true"></span>
+                  <span>{{ isActionLoading('download') ? 'Generando documento...' : 'Descargar documento' }}</span>
+                  <span class="action-button__badge"
+                    *ngIf="isActionSuccess('download') && !isActionLoading('download')">Listo</span>
+                </span>
               </button>
-              <p class="map-modal-text" *ngIf="descargadoDocumentoStatusMsg">{{ descargadoDocumentoStatusMsg }}</p>
+              <p class="map-modal-text request-status-text"
+                [class.request-status-text--success]="isActionSuccess('download')"
+                [class.request-status-text--error]="isActionError('download')"
+                *ngIf="descargadoDocumentoStatusMsg">{{ descargadoDocumentoStatusMsg }}</p>
             </div>
             <div class="document-download-card">
               <div>
@@ -858,13 +902,25 @@
               </div>
 
               <button *ngIf="puedeEditarEstadisticasCrud" type="button"
-                class="map-action-button map-action-button-active" (click)="actualizar_dashboard()"
-                [disabled]="cargandoDashboard">
-                {{ cargandoDashboard ? 'Actualizando...' : 'Ver informacion general' }}
+                class="map-action-button map-action-button-active action-button"
+                [class.action-button--loading]="isActionLoading('dashboard')"
+                [class.action-button--success]="isActionSuccess('dashboard')"
+                [class.action-button--error]="isActionError('dashboard')"
+                (click)="actualizar_dashboard()"
+                [disabled]="!puedeConsultarDashboard">
+                <span class="action-button__content">
+                  <span class="action-button__spinner" *ngIf="isActionLoading('dashboard')" aria-hidden="true"></span>
+                  <span>{{ isActionLoading('dashboard') ? 'Consultando...' : 'Ver informacion general' }}</span>
+                  <span class="action-button__badge"
+                    *ngIf="isActionSuccess('dashboard') && !isActionLoading('dashboard')">Listo</span>
+                </span>
               </button>
-              <p class="map-modal-text" *ngIf="dashboardStatusMsg">{{ dashboardStatusMsg }}</p>
+              <p class="map-modal-text request-status-text"
+                [class.request-status-text--success]="isActionSuccess('dashboard')"
+                [class.request-status-text--error]="isActionError('dashboard')"
+                *ngIf="dashboardStatusMsg">{{ dashboardStatusMsg }}</p>
             </div>
-            <button type="button" class="map-action-button" (click)="cerrarFiltrosModal()">Cancelar</button>
+            <button type="button" class="map-action-button" (click)="cerrarFiltrosModal()" [disabled]="hayPeticionActiva">Cancelar</button>
 
 
 

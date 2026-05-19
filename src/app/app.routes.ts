@@ -32,10 +32,25 @@ export const routes: Routes = [
     data: { nombre: 'Usuarios Listados', descripcion: 'Listado de usuarios' }
   },
   {
+    path: 'afectaciones',
+    loadComponent: () => import('./pages/afectaciones/afectaciones').then((m) => m.AfectacionesComponent),
+    canActivate: [AuthGuard],
+    data: { nombre: 'Afectaciones', descripcion: 'Visualización de afectaciones' }
+  },
+  {
     path: 'estadisticas',
     loadComponent: () => import('./pages/estadisticas/estadisticas.component').then((m) => m.EstadisticasComponent),
     canActivate: [AuthGuard],
     data: { nombre: 'Estadisticas', descripcion: 'Visualizacion de estadisticas' }
+  },
+  {
+    path: 'seguimiento',
+    loadComponent: () =>
+      import('./pages/seguimiento-operacional/seguimiento-operacional.component').then(
+        (m) => m.SeguimientoOperacionalComponent
+      ),
+    canActivate: [AuthGuard],
+    data: { nombre: 'Seguimiento', descripcion: 'Visualizacion de seguimiento operacional' }
   },
   {
     path: 'configuracion',

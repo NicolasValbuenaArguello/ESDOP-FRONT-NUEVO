@@ -1,0 +1,401 @@
+<div
+  class="seguimiento-page"
+  [class.sidebar-hidden]="!sidebarState.visible"
+  [class.tactical-mode]="mapState.modoTactico"
+  [style.--layout-sidebar-width]="sidebarState.width + 'px'">
+  <app-sidebar
+    *ngIf="sidebarState.visible"
+    (ocultar)="toggleSidebar()"
+    (layoutChange)="onSidebarLayoutChange($event)">
+  </app-sidebar>
+
+  <main class="seguimiento-shell">
+    <ng-container *ngIf="puedeVerSeguimiento; else sinPermiso">
+      <section class="operational-shell">
+        <header class="operational-header">
+          <div class="header-copy">
+            <span class="section-kicker">Centro de mando operacional</span>
+            <h1>{{ dashboardVm.headerTitle }}</h1>
+            <p>{{ dashboardVm.headerDescription }}</p>
+          </div>
+
+          <div class="header-actions">
+            <span class="status-chip">{{ dashboardVm.headerStatus }}</span>
+            <span class="status-chip">{{ dashboardVm.refreshLabel }}</span>
+            <button type="button" class="action-pill" (click)="abrirPanelControl()">Panel táctico</button>
+            <button type="button" class="action-pill" (click)="abrirFiltros()">Filtros avanzados</button>
+            <button type="button" class="action-pill action-pill-primary" [disabled]="loadingConsulta" (click)="aplicarFiltrosRapidos()">
+              {{ loadingConsulta ? 'Consultando' : quickFilterButtonLabel }}
+            </button>
+          </div>
+        </header>
+
+        <section class="quick-filters">
+          <div class="quick-field">
+            <span>División</span>
+            <select [(ngModel)]="quickDivisionValue">
+              <option value="TODAS">Todas</option>
+              <option *ngFor="let item of filterOptions.divisiones; trackBy: trackByText" [value]="item">{{ item }}</option>
+            </select>
+          </div>
+
+          <div class="quick-field">
+            <span>Alerta</span>
+            <select [(ngModel)]="quickAlertValue">
+              <option value="TODAS">Todas</option>
+              <option value="CRITICO">Crítico</option>
+              <option value="ALTO">Alto</option>
+              <option value="MEDIO">Medio</option>
+              <option value="BAJO">Bajo</option>
+            </select>
+          </div>
+
+          <div class="quick-field">
+            <span>Operación</span>
+            <select [(ngModel)]="quickOperationValue">
+              <option value="TODAS">Todas</option>
+              <option *ngFor="let item of filterOptions.operaciones; trackBy: trackByText" [value]="item">{{ item }}</option>
+            </select>
+          </div>
+
+          <div class="quick-field">
+            <span>EXDE</span>
+            <select [(ngModel)]="quickExdeValue">
+              <option value="TODOS">Todos</option>
+              <option value="SI">Sí</option>
+              <option value="NO">No</option>
+            </select>
+          </div>
+
+          <div class="quick-summary">
+            <span class="section-kicker">Filtros activos</span>
+            <div class="summary-chips">
+              <span class="summary-chip" *ngFor="let item of quickFilterSummary; trackBy: trackByText">{{ item }}</span>
+            </div>
+          </div>
+
+          <div class="quick-filter-actions">
+            <button type="button" class="action-pill action-pill-primary" [disabled]="loadingConsulta" (click)="aplicarFiltrosRapidos()">
+              {{ loadingConsulta ? 'Consultando' : quickFilterButtonLabel }}
+            </button>
+            <button type="button" class="action-pill" (click)="limpiarFiltros()">Limpiar</button>
+          </div>
+        </section>
+
+        <section class="export-strip">
+          <div class="export-copy">
+            <span class="section-kicker">Exportaciones</span>
+            <p>Exporta solo lo que esta visible actualmente en el mapa tactico.</p>
+          </div>
+          <div class="export-actions">
+            <button type="button" class="action-pill" (click)="exportarKmlVisible()">KML</button>
+            <button type="button" class="action-pill" (click)="exportarGeoJsonVisible()">GeoJSON</button>
+            <button type="button" class="action-pill" (click)="exportarCsvVisible()">CSV</button>
+            <button type="button" class="action-pill" (click)="exportarPngMapa()">PNG</button>
+          </div>
+          <span class="export-status" *ngIf="exportStatus">{{ exportStatus }}</span>
+        </section>
+
+        <section class="map-and-panel" [class.map-only]="!showPanel">
+          <div class="map-column" *ngIf="mapState.visible" #mapFullscreenHost>
+            <app-mapa-operacional
+              [titulo]="'Teatro geoespacial'"
+              [descripcion]="'Clustering táctico, capas ligeras y render incremental sobre los datos filtrados.'"
+              [renderModel]="mapRenderModel"
+              [layoutRevision]="layoutRevision"
+              [fullscreenExterno]="mapState.fullscreen"
+              (fullscreenRequested)="alternarMapaFullscreen()"
+              (featureSelected)="onMapFeatureSelected($event)">
+            </app-mapa-operacional>
+          </div>
+
+          <aside class="panel-column" *ngIf="showPanel">
+            <section class="detail-panel" *ngIf="dashboardVm.selectedDetail as detail; else emptyDetail">
+              <div class="detail-head">
+                <div>
+                  <span class="section-kicker">Elemento seleccionado</span>
+                  <h2>{{ detail.title }}</h2>
+                  <p>{{ detail.subtitle }}</p>
+                </div>
+                <span class="risk-pill" [class]="detail.riskClass">{{ detail.riskLabel }}</span>
+              </div>
+
+              <div class="detail-grid">
+                <div><span>Unidad</span><strong>{{ detail.unidad }}</strong></div>
+                <div><span>División</span><strong>{{ detail.division }}</strong></div>
+                <div><span>Brigada</span><strong>{{ detail.brigada }}</strong></div>
+                <div><span>Comandante</span><strong>{{ detail.comandante }}</strong></div>
+                <div><span>Soldados</span><strong>{{ detail.soldados }}</strong></div>
+                <div><span>Operación</span><strong>{{ detail.operacion }}</strong></div>
+                <div><span>Incidencias</span><strong>{{ detail.incidenciaLabel }}</strong></div>
+                <div><span>Distancia</span><strong>{{ detail.distanciaLabel }}</strong></div>
+                <div><span>Ubicación</span><strong>{{ detail.ubicacionLabel }}</strong></div>
+                <div><span>Fecha</span><strong>{{ detail.fechaLabel }}</strong></div>
+              </div>
+
+              <div class="detail-notes">
+                <span>Observaciones</span>
+                <p>{{ detail.observaciones }}</p>
+              </div>
+            </section>
+
+            <ng-template #emptyDetail>
+              <section class="detail-panel detail-panel-empty">
+                <span class="section-kicker">Panel táctico</span>
+                <h2>Sin selección</h2>
+                <p>Selecciona un marcador o una fila para centrar el mapa y ver su contexto operacional.</p>
+              </section>
+            </ng-template>
+
+            <section class="division-panel">
+              <div class="panel-head">
+                <span class="section-kicker">Divisiones</span>
+                <h3>Filtro territorial</h3>
+              </div>
+
+              <div class="division-chip-list">
+                <button
+                  type="button"
+                  class="division-chip"
+                  *ngFor="let chip of dashboardVm.divisionChips; trackBy: trackById"
+                  [class.division-chip-active]="chip.active"
+                  (click)="seleccionarDivision(chip.id)">
+                  {{ chip.label }}
+                </button>
+              </div>
+            </section>
+          </aside>
+        </section>
+
+        <section class="kpi-strip" *ngIf="showKpis">
+          <button
+            type="button"
+            class="kpi-card"
+            *ngFor="let card of dashboardVm.kpis; trackBy: trackById"
+            [class.kpi-card-active]="card.active"
+            (click)="seleccionarCard(card.id)">
+            <div class="kpi-icon">
+              <i class="bi" [class]="card.iconClass"></i>
+            </div>
+            <div class="kpi-copy">
+              <span>{{ card.label }}</span>
+              <strong>{{ card.value }}</strong>
+              <small>{{ card.helper }}</small>
+            </div>
+          </button>
+        </section>
+
+        <section class="table-shell" *ngIf="showTable">
+          <div class="table-head">
+            <div>
+              <span class="section-kicker">Tabla táctica</span>
+              <h2>{{ dashboardVm.tableCountLabel }}</h2>
+              <p>La tabla replica exactamente lo visible en el mapa y permite centrar la selección.</p>
+            </div>
+
+            <label class="table-search">
+              <i class="bi bi-search"></i>
+              <input type="text" [(ngModel)]="tableSearch" (ngModelChange)="onTableSearchChange($event)" placeholder="Buscar unidad, comandante, división o ubicación" />
+            </label>
+          </div>
+
+          <div class="table-wrapper">
+            <table class="tactical-table">
+              <thead>
+                <tr>
+                  <th (click)="toggleTableSort('unidad')">Unidad</th>
+                  <th (click)="toggleTableSort('comandante')">Comandante</th>
+                  <th (click)="toggleTableSort('division')">División</th>
+                  <th (click)="toggleTableSort('alerta')">Alerta</th>
+                  <th (click)="toggleTableSort('operacion')">Operación</th>
+                  <th (click)="toggleTableSort('distanciaLabel')">Distancia</th>
+                  <th (click)="toggleTableSort('ubicacionLabel')">Ubicación</th>
+                  <th (click)="toggleTableSort('timestamp')">Fecha</th>
+                  <th>Acciones</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr *ngFor="let row of currentTableRows; trackBy: trackById" [class]="row.toneClass" (click)="seleccionarFila(row)">
+                  <td>{{ row.unidad }}</td>
+                  <td>{{ row.comandante }}</td>
+                  <td>{{ row.division }}</td>
+                  <td>{{ row.alerta }}</td>
+                  <td>{{ row.operacion }}</td>
+                  <td>{{ row.distanciaLabel }}</td>
+                  <td>{{ row.ubicacionLabel }}</td>
+                  <td>{{ row.timestamp }}</td>
+                  <td class="table-actions-cell">
+                    <button type="button" class="row-action" [disabled]="!row.canShowMap" (click)="verFilaEnMapa(row, $event)">Ver en mapa</button>
+                    <button type="button" class="row-action" [disabled]="!row.canShowDetail" (click)="verFilaDetalle(row, $event)">Ver detalle</button>
+                  </td>
+                </tr>
+                <tr *ngIf="!currentTableRows.length">
+                  <td colspan="9" class="empty-table">No hay registros para los filtros aplicados.</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="table-footer">
+            <span>{{ tableRangeLabel }}</span>
+            <div class="footer-actions">
+              <button type="button" class="action-pill" [disabled]="tablePage === 1" (click)="goToTablePage(-1)">Anterior</button>
+              <button type="button" class="action-pill" [disabled]="tablePage === totalTablePages" (click)="goToTablePage(1)">Siguiente</button>
+            </div>
+          </div>
+        </section>
+      </section>
+    </ng-container>
+
+    <ng-template #sinPermiso>
+      <section class="sin-permiso">
+        <i class="bi bi-shield-lock"></i>
+        <div>
+          <h2>Sin permiso de acceso</h2>
+          <p>La ruta `/seguimiento` requiere autorización para desplegar el centro táctico.</p>
+        </div>
+      </section>
+    </ng-template>
+  </main>
+</div>
+
+<div class="panel-control-backdrop" *ngIf="mostrarPanelControlModal" (click)="cerrarPanelControl()">
+  <section class="panel-control-modal" (click)="$event.stopPropagation()">
+    <div class="panel-control-head">
+      <div>
+        <p class="section-kicker">Panel de control</p>
+        <h2>Centro táctico</h2>
+      </div>
+
+      <button type="button" class="modal-close" (click)="cerrarPanelControl()" aria-label="Cerrar panel">
+        <i class="bi bi-x-lg"></i>
+      </button>
+    </div>
+
+    <app-sidebar-operacional
+      [menu]="menu"
+      [seccionActiva]="seccionActiva"
+      [modulos]="modulos"
+      [mapState]="mapState"
+      [filtrosActivos]="quickFilterSummary"
+      (toggleMenu)="toggleMenu($event)"
+      (submenuSeleccionado)="seleccionarSubmenu($event.menu, $event.submenu); cerrarPanelControl()"
+      (alternarModulo)="alternarModulo($event)"
+      (alternarMapa)="alternarMapa()"
+      (alternarMapaExpandido)="alternarMapaExpandido()"
+      (alternarMapaFullscreen)="alternarMapaFullscreen()"
+      (alternarModoTactico)="alternarModoTactico()">
+    </app-sidebar-operacional>
+  </section>
+</div>
+
+<div class="filtros-backdrop" *ngIf="mostrarFiltrosModal" (click)="cerrarFiltros()">
+  <app-filtros-operacionales
+    (click)="$event.stopPropagation()"
+    [filtros]="filtros"
+    [filtrosAvanzados]="filtrosAvanzados"
+    [filtrosOperacionales]="operationalFilters"
+    [opciones]="filterOptions"
+    (cerrar)="cerrarFiltros()"
+    (limpiar)="limpiarFiltros()"
+    (aplicar)="aplicarFiltros()">
+  </app-filtros-operacionales>
+</div>
+
+<div class="overlay-backdrop" *ngIf="showPelotonesModal" (click)="cerrarOverlays()">
+  <section class="overlay-modal" (click)="$event.stopPropagation()">
+    <div class="panel-control-head">
+      <div>
+        <p class="section-kicker">Pelotones</p>
+        <h2>Desglose tactico</h2>
+      </div>
+      <button type="button" class="modal-close" (click)="cerrarOverlays()" aria-label="Cerrar modal">
+        <i class="bi bi-x-lg"></i>
+      </button>
+    </div>
+
+    <div class="overlay-summary-grid">
+      <article class="overlay-stat">
+        <span>Operaciones</span>
+        <strong>{{ dashboardVm.visibleCounts.operaciones }}</strong>
+      </article>
+      <article class="overlay-stat">
+        <span>Entrenamiento</span>
+        <strong>{{ dashboardVm.visibleCounts.entrenamiento }}</strong>
+      </article>
+      <article class="overlay-stat">
+        <span>Descanso</span>
+        <strong>{{ dashboardVm.visibleCounts.descanso }}</strong>
+      </article>
+    </div>
+
+    <div class="overlay-table">
+      <table class="mini-table">
+        <thead>
+          <tr>
+            <th>Division</th>
+            <th>Operaciones</th>
+            <th>Entrenamiento</th>
+            <th>Descanso</th>
+            <th>Total</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let row of pelotonBreakdown; trackBy: trackByDivision">
+            <td>{{ row.division }}</td>
+            <td>{{ row.operaciones }}</td>
+            <td>{{ row.entrenamiento }}</td>
+            <td>{{ row.descanso }}</td>
+            <td>{{ row.total }}</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+</div>
+
+<div class="overlay-backdrop" *ngIf="showExdeModal" (click)="cerrarOverlays()">
+  <section class="overlay-modal overlay-modal-narrow" (click)="$event.stopPropagation()">
+    <div class="panel-control-head">
+      <div>
+        <p class="section-kicker">EXDE</p>
+        <h2>Detalle por division</h2>
+      </div>
+      <button type="button" class="modal-close" (click)="cerrarOverlays()" aria-label="Cerrar modal">
+        <i class="bi bi-x-lg"></i>
+      </button>
+    </div>
+
+    <div class="overlay-list">
+      <div class="overlay-list-row" *ngFor="let row of exdeBreakdown; trackBy: trackById">
+        <strong>{{ row.label }}</strong>
+        <span>{{ row.total }}</span>
+      </div>
+    </div>
+  </section>
+</div>
+
+<div class="overlay-backdrop" *ngIf="showDetailOverlay && selectedTableDetail" (click)="cerrarOverlays()">
+  <section class="overlay-modal overlay-modal-narrow" (click)="$event.stopPropagation()">
+    <div class="panel-control-head">
+      <div>
+        <p class="section-kicker">Detalle tactico</p>
+        <h2>{{ selectedTableDetail.unidad }}</h2>
+      </div>
+      <button type="button" class="modal-close" (click)="cerrarOverlays()" aria-label="Cerrar modal">
+        <i class="bi bi-x-lg"></i>
+      </button>
+    </div>
+
+    <div class="detail-grid">
+      <div><span>Comandante</span><strong>{{ selectedTableDetail.comandante }}</strong></div>
+      <div><span>Division</span><strong>{{ selectedTableDetail.division }}</strong></div>
+      <div><span>Brigada</span><strong>{{ selectedTableDetail.brigada }}</strong></div>
+      <div><span>Alerta</span><strong>{{ selectedTableDetail.alerta }}</strong></div>
+      <div><span>Operacion</span><strong>{{ selectedTableDetail.operacion }}</strong></div>
+      <div><span>Distancia</span><strong>{{ selectedTableDetail.distanciaLabel }}</strong></div>
+      <div><span>Ubicacion</span><strong>{{ selectedTableDetail.ubicacionLabel }}</strong></div>
+      <div><span>Fecha</span><strong>{{ selectedTableDetail.timestamp }}</strong></div>
+    </div>
+  </section>
+</div>

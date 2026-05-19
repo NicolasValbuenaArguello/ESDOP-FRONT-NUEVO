@@ -1,0 +1,162 @@
+<section class="filtros_modal" aria-label="Filtros operacionales">
+  <div class="filtros_modal_head">
+    <div>
+      <p class="seguimiento_kicker">Filtros operacionales</p>
+      <h2>Consulta táctica controlada</h2>
+      <p class="filtros_modal_copy">Cada cambio impacta mapa, clusters, panel y tabla cuando aplicas la consulta.</p>
+    </div>
+
+    <button type="button" class="modal_close" (click)="cerrar.emit()" aria-label="Cerrar filtros">
+      <i class="bi bi-x-lg"></i>
+    </button>
+  </div>
+
+  <form class="filtros_stack" (ngSubmit)="aplicar.emit()">
+    <section class="filtros_group">
+      <div class="group_head">
+        <span class="group_label">Ventana temporal</span>
+        <div class="segmented">
+          <button type="button" [class.segmented_active]="filtrosAvanzados.modoFecha === 'preset'" (click)="filtrosAvanzados.modoFecha = 'preset'">Preset</button>
+          <button type="button" [class.segmented_active]="filtrosAvanzados.modoFecha === 'rango'" (click)="filtrosAvanzados.modoFecha = 'rango'">Rango</button>
+        </div>
+      </div>
+
+      <div class="preset_grid" *ngIf="filtrosAvanzados.modoFecha === 'preset'">
+        <button
+          type="button"
+          class="preset_chip"
+          *ngFor="let preset of presets"
+          [class.preset_chip_active]="filtrosAvanzados.preset === preset.value"
+          (click)="filtrosAvanzados.preset = preset.value">
+          {{ preset.label }}
+        </button>
+      </div>
+
+      <div class="filtros_form filtros_form_dense">
+        <label class="filtro_campo">
+          <span>Fecha inicial</span>
+          <input type="date" [(ngModel)]="filtrosAvanzados.fechaInicial" name="fechaInicial" />
+        </label>
+
+        <label class="filtro_campo">
+          <span>Fecha final</span>
+          <input type="date" [(ngModel)]="filtrosAvanzados.fechaFinal" name="fechaFinal" />
+        </label>
+
+        <label class="filtro_campo">
+          <span>Fecha alerta</span>
+          <input type="date" [(ngModel)]="filtrosAvanzados.fechaAlerta" name="fechaAlerta" />
+        </label>
+      </div>
+    </section>
+
+    <section class="filtros_group">
+      <div class="group_head">
+        <span class="group_label">Filtros tácticos</span>
+      </div>
+
+      <div class="filtros_form filtros_form_wide">
+        <label class="filtro_campo">
+          <span>División</span>
+          <select [(ngModel)]="filtrosOperacionales.division" name="division">
+            <option value="TODAS">Todas</option>
+            <option *ngFor="let item of opciones.divisiones" [value]="item">{{ item }}</option>
+          </select>
+        </label>
+
+        <label class="filtro_campo">
+          <span>Brigada</span>
+          <select [(ngModel)]="filtrosOperacionales.brigada" name="brigada">
+            <option value="TODAS">Todas</option>
+            <option *ngFor="let item of opciones.brigadas" [value]="item">{{ item }}</option>
+          </select>
+        </label>
+
+        <label class="filtro_campo">
+          <span>Unidad</span>
+          <select [(ngModel)]="filtrosOperacionales.unidad" name="unidadOperacional">
+            <option value="TODAS">Todas</option>
+            <option *ngFor="let item of opciones.unidades" [value]="item">{{ item }}</option>
+          </select>
+        </label>
+
+        <label class="filtro_campo">
+          <span>Departamento</span>
+          <select [(ngModel)]="filtrosOperacionales.departamento" name="departamento">
+            <option value="TODOS">Todos</option>
+            <option *ngFor="let item of opciones.departamentos" [value]="item">{{ item }}</option>
+          </select>
+        </label>
+
+        <label class="filtro_campo">
+          <span>Municipio</span>
+          <select [(ngModel)]="filtrosOperacionales.municipio" name="municipio">
+            <option value="TODOS">Todos</option>
+            <option *ngFor="let item of opciones.municipios" [value]="item">{{ item }}</option>
+          </select>
+        </label>
+
+        <label class="filtro_campo">
+          <span>Alerta</span>
+          <select [(ngModel)]="filtrosOperacionales.alerta" name="alerta">
+            <option value="TODAS">Todas</option>
+            <option value="CRITICO">Crítico</option>
+            <option value="ALTO">Alto</option>
+            <option value="MEDIO">Medio</option>
+            <option value="BAJO">Bajo</option>
+          </select>
+        </label>
+
+        <label class="filtro_campo">
+          <span>Operación</span>
+          <select [(ngModel)]="filtrosOperacionales.operacion" name="operacion">
+            <option value="TODAS">Todas</option>
+            <option *ngFor="let item of opciones.operaciones" [value]="item">{{ item }}</option>
+          </select>
+        </label>
+
+        <label class="filtro_campo">
+          <span>EXDE</span>
+          <select [(ngModel)]="filtrosOperacionales.exde" name="exde">
+            <option value="TODOS">Todos</option>
+            <option value="SI">Sí</option>
+            <option value="NO">No</option>
+          </select>
+        </label>
+      </div>
+    </section>
+
+    <section class="filtros_group">
+      <div class="group_head">
+        <span class="group_label">Compatibilidad actual</span>
+      </div>
+
+      <div class="filtros_form">
+        <label class="filtro_campo">
+          <span>Lapso heredado</span>
+          <select [(ngModel)]="filtros.lapso" name="lapso">
+            <option value="24h">Últimas 24 horas</option>
+            <option value="48h">Últimas 48 horas</option>
+            <option value="7d">Últimos 7 días</option>
+            <option value="30d">Últimos 30 días</option>
+          </select>
+        </label>
+
+        <label class="filtro_campo">
+          <span>Prioridad heredada</span>
+          <select [(ngModel)]="filtros.prioridad" name="prioridad">
+            <option value="todas">Todas</option>
+            <option value="alta">Alta</option>
+            <option value="media">Media</option>
+            <option value="baja">Baja</option>
+          </select>
+        </label>
+      </div>
+    </section>
+
+    <div class="filtros_actions">
+      <button type="button" class="topbar_button topbar_button_soft" (click)="limpiar.emit()">Limpiar</button>
+      <button type="submit" class="topbar_button topbar_button_primary">Aplicar filtros</button>
+    </div>
+  </form>
+</section>

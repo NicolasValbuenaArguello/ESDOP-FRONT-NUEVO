@@ -2,6 +2,7 @@ import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { environment } from '../../environments/environment';
 import { forkJoin, map, Observable, of } from 'rxjs';
+import { getAllRegisteredPages, getRegisteredPageByRoute, mergePagesWithRegistry } from './page-registry';
 import {
   ActualizacionRegistroPlano,
   EnemigoEstructuraRegistroPlano,
@@ -31,6 +32,7 @@ export interface UsuarioAutenticado {
   unidad: string;
   nivel_per_uni: string | null;
   unida_per: string | null;
+  roles?: string[] | unknown;
   unidades?: unknown;
   enemigo?: EnemigoRegistroPlano[] | unknown;
   enemigo_estructura?: EnemigoEstructuraRegistroPlano[] | unknown;
@@ -51,6 +53,9 @@ interface PaginaBackend {
 
 interface UsuarioBackendConPermisos {
   usuario?: string;
+  roles?: string[] | unknown;
+  nivel_per_uni?: string | null;
+  unida_per?: string | null;
   permisos?: Record<string, {
     tiene_permiso?: boolean;
     puede_ver?: boolean;
@@ -70,6 +75,7 @@ export interface LoginResponse {
   unidad?: string;
   nivel_per_uni?: string | null;
   unida_per?: string | null;
+  roles?: string[] | unknown;
   unidades?: unknown;
   enemigo?: EnemigoRegistroPlano[] | unknown;
   enemigo_estructura?: EnemigoEstructuraRegistroPlano[] | unknown;
@@ -133,6 +139,7 @@ export class AuthService {
         unidad: response.user.unidad,
         nivel_per_uni: response.user.nivel_per_uni ?? null,
         unida_per: response.user.unida_per ?? null,
+        roles: this.normalizarRoles(response.user.roles),
         unidades: response.user.unidades,
         enemigo: this.resolverCatalogoPlano(response.user, ['enemigo']),
         enemigo_estructura: this.resolverCatalogoPlano(response.user, ['enemigo_estructura', 'ene_estructura', 'enemigoEstructura', 'estructura_enemigo', 'estructura']),
@@ -151,6 +158,7 @@ export class AuthService {
         unidad: response.unidad || 'Unidad no registrada',
         nivel_per_uni: response.nivel_per_uni ?? null,
         unida_per: response.unida_per ?? null,
+        roles: this.normalizarRoles(response.roles),
         unidades: response.unidades,
         enemigo: this.resolverCatalogoPlano(response, ['enemigo']),
         enemigo_estructura: this.resolverCatalogoPlano(response, ['enemigo_estructura', 'ene_estructura', 'enemigoEstructura', 'estructura_enemigo', 'estructura']),
@@ -205,7 +213,7 @@ export class AuthService {
   }
 
   login(usuario: string, password: string, captchaToken: string | null) {
-    const url = `${environment.apiBase}${environment.services?.auth ?? '/login'}`;
+    const url = `${environment.apiBase}${environment.services?.backend?.auth ?? '/login'}`;
 
     return this.http.post<LoginResponse>(url, {
       username: usuario,
@@ -215,7 +223,7 @@ export class AuthService {
   }
 
   cargarPermisosDesdeFrontend(usuario: string): Observable<PermisoAcceso[]> {
-    const apiUsuarios = `${environment.apiBase}${environment.services?.usuarios ?? '/usuarios'}`;
+    const apiUsuarios = `${environment.apiBase}${environment.services?.backend?.usuarios ?? '/usuarios'}`;
 
     // Fallback 100% frontend:
     // cuando /login no devuelve permisos, el front consulta usuarios y paginas,
@@ -226,18 +234,27 @@ export class AuthService {
       paginas: this.http.get<PaginaBackend[]>(`${apiUsuarios}/paginas`)
     }).pipe(
       map(({ usuarios, paginas }) => {
+        const paginasNormalizadas = mergePagesWithRegistry(paginas);
         const usuarioActual = usuarios.find((item) => item.usuario === usuario);
+        const esPrivilegiado = this.esUsuarioPrivilegiadoConContexto(usuarioActual);
 
         if (!usuarioActual?.permisos) {
-          return this.normalizarPermisos([]);
+          return esPrivilegiado
+            ? this.expandirPermisosPrivilegiados([])
+            : this.normalizarPermisos([]);
         }
 
         if (Array.isArray(usuarioActual.permisos)) {
-          return this.normalizarPermisos(usuarioActual.permisos);
+          const permisosNormalizados = this.normalizarPermisos(usuarioActual.permisos);
+          return esPrivilegiado
+            ? this.expandirPermisosPrivilegiados(permisosNormalizados)
+            : permisosNormalizados;
         }
 
         const permisos = Object.entries(usuarioActual.permisos).map(([ruta, permiso]) => {
-          const pagina = paginas.find((item) => this.normalizarRuta(item.ruta) === this.normalizarRuta(ruta));
+          const pagina = paginasNormalizadas.find(
+            (item) => this.normalizarRuta(item.ruta) === this.normalizarRuta(ruta)
+          );
 
           return {
             id: pagina?.id,
@@ -252,7 +269,10 @@ export class AuthService {
           } satisfies PermisoAcceso;
         });
 
-        return this.normalizarPermisos(permisos);
+        const permisosNormalizados = this.normalizarPermisos(permisos);
+        return esPrivilegiado
+          ? this.expandirPermisosPrivilegiados(permisosNormalizados)
+          : permisosNormalizados;
       })
     );
   }
@@ -271,6 +291,7 @@ export class AuthService {
       this.guardarUnidad('Unidad no registrada');
       localStorage.removeItem('nivel_per_uni');
       localStorage.removeItem('unida_per');
+      localStorage.removeItem('roles');
       localStorage.removeItem('unidades');
       localStorage.removeItem('enemigo');
       localStorage.removeItem('enemigo_estructura');
@@ -287,6 +308,7 @@ export class AuthService {
     this.guardarUnidad(user.unidad || 'Unidad no registrada');
     localStorage.setItem('nivel_per_uni', user.nivel_per_uni ?? '');
     localStorage.setItem('unida_per', user.unida_per ?? '');
+    localStorage.setItem('roles', JSON.stringify(this.normalizarRoles(user.roles)));
     localStorage.setItem('unidades', JSON.stringify(user.unidades ?? []));
     const enemigosNormalizados = this.unidadesTreeService.normalizarEnemigo(user.enemigo);
     const estructurasNormalizadas = this.unidadesTreeService.normalizarEnemigoEstructura(
@@ -342,6 +364,25 @@ export class AuthService {
 
   obtenerUnidadPermiso() {
     return localStorage.getItem('unida_per');
+  }
+
+  obtenerRolesUsuario(): string[] {
+    const raw = localStorage.getItem('roles');
+
+    try {
+      const roles = raw ? JSON.parse(raw) : [];
+      return Array.isArray(roles) ? roles.map((rol) => String(rol)) : [];
+    } catch {
+      return [];
+    }
+  }
+
+  esUsuarioPrivilegiado(): boolean {
+    return this.esUsuarioPrivilegiadoConContexto({
+      roles: this.obtenerRolesUsuario(),
+      nivel_per_uni: this.obtenerNivelPermisoUnidad(),
+      unida_per: this.obtenerUnidadPermiso()
+    });
   }
 obtenerOperacionesUsuario(): unknown[] {
     const raw = localStorage.getItem('operacion');
@@ -444,6 +485,7 @@ obtenerOperacionesUsuario(): unknown[] {
     localStorage.removeItem('unidad');
     localStorage.removeItem('nivel_per_uni');
     localStorage.removeItem('unida_per');
+    localStorage.removeItem('roles');
     localStorage.removeItem('unidades');
     localStorage.removeItem('permisos');
     localStorage.removeItem('enemigo');
@@ -457,10 +499,14 @@ obtenerOperacionesUsuario(): unknown[] {
   }
 
   private normalizarPermisos(permisos: PermisoAcceso[] = []): PermisoAcceso[] {
-    return permisos.map((permiso) => ({
+    const permisosNormalizados = permisos.map((permiso) => ({
       ...permiso,
-      menu: permiso.menu || 'General',
-      nombre: permiso.nombre || permiso.ruta || 'Sin nombre',
+      menu: permiso.menu || getRegisteredPageByRoute(permiso.ruta)?.menu || 'General',
+      nombre:
+        permiso.nombre
+        || getRegisteredPageByRoute(permiso.ruta)?.nombre
+        || permiso.ruta
+        || 'Sin nombre',
       ruta: this.normalizarRuta(permiso.ruta),
       tiene_permiso: Boolean(permiso.tiene_permiso),
       puede_ver: Boolean(permiso.puede_ver),
@@ -468,6 +514,10 @@ obtenerOperacionesUsuario(): unknown[] {
       puede_editar: permiso.puede_editar ?? false,
       puede_eliminar: permiso.puede_eliminar ?? false
     }));
+
+    return this.esUsuarioPrivilegiado()
+      ? this.expandirPermisosPrivilegiados(permisosNormalizados)
+      : permisosNormalizados;
   }
 
   private normalizarRuta(ruta: string | undefined | null): string {
@@ -491,6 +541,60 @@ obtenerOperacionesUsuario(): unknown[] {
     }
 
     return [];
+  }
+
+  private esUsuarioPrivilegiadoConContexto(contexto?: {
+    roles?: string[] | unknown;
+    nivel_per_uni?: string | null;
+    unida_per?: string | null;
+  } | null): boolean {
+    const roles = this.normalizarRoles(contexto?.roles).map((rol) => rol.toUpperCase());
+    const nivelPermiso = String(contexto?.nivel_per_uni || '').trim().toUpperCase();
+    const unidadPermiso = String(contexto?.unida_per || '').trim().toUpperCase();
+
+    return roles.includes('SUPER')
+      || roles.includes('ADMIN')
+      || nivelPermiso === 'SUPER'
+      || nivelPermiso === 'ADMIN'
+      || unidadPermiso === 'SUPER'
+      || unidadPermiso === 'ADMIN';
+  }
+
+  private expandirPermisosPrivilegiados(permisos: PermisoAcceso[]): PermisoAcceso[] {
+    const permisosMap = new Map<string, PermisoAcceso>();
+
+    for (const permiso of permisos) {
+      permisosMap.set(this.normalizarRuta(permiso.ruta), permiso);
+    }
+
+    for (const pagina of getAllRegisteredPages()) {
+      const ruta = this.normalizarRuta(pagina.ruta);
+      const permisoActual = permisosMap.get(ruta);
+
+      permisosMap.set(ruta, {
+        id: permisoActual?.id ?? pagina.id,
+        menu: permisoActual?.menu || pagina.menu,
+        nombre: permisoActual?.nombre || pagina.nombre,
+        ruta,
+        tiene_permiso: true,
+        puede_ver: true,
+        puede_crear: permisoActual?.puede_crear ?? true,
+        puede_editar: permisoActual?.puede_editar ?? true,
+        puede_eliminar: permisoActual?.puede_eliminar ?? true
+      });
+    }
+
+    return Array.from(permisosMap.values());
+  }
+
+  private normalizarRoles(roles: unknown): string[] {
+    if (!Array.isArray(roles)) {
+      return [];
+    }
+
+    return roles
+      .map((rol) => String(rol).trim())
+      .filter(Boolean);
   }
 
   private resolverCatalogoPlano(source: unknown, aliases: string[]): unknown[] {

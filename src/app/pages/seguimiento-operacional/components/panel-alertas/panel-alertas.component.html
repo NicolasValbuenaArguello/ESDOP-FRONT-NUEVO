@@ -1,0 +1,19 @@
+<section class="panel_block" *ngIf="alertas.length">
+  <div class="panel_block_head">
+    <span class="panel_badge">{{ subtitulo || 'Alertamiento' }}</span>
+    <h3>{{ titulo }}</h3>
+  </div>
+
+  <article
+    class="alerta_card"
+    *ngFor="let alerta of alertas; trackBy: trackByAlert"
+    [class.alerta_card_critica]="alerta.severidad === 'alta'"
+    [class.alerta_card_alerta]="alerta.severidad === 'media'">
+    <div class="alerta_topline">
+      <strong>{{ alerta.titulo }}</strong>
+      <span>{{ alerta.tiempo }}</span>
+    </div>
+    <p>{{ alerta.detalle }}</p>
+    <small>{{ alerta.unidad }} · {{ alerta.estado }}</small>
+  </article>
+</section>

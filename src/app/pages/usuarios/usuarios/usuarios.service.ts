@@ -1,7 +1,9 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
+import { map } from 'rxjs/operators';
 import { environment } from '../../../../environments/environment';
+import { mergePagesWithRegistry } from '../../../services/page-registry';
 
 export interface PermisoPagina {
   ver?: boolean;
@@ -90,7 +92,7 @@ export interface Pagina {
 @Injectable({ providedIn: 'root' })
 export class UsuariosService {
 
-  private api = `${environment.apiBase}${environment.services?.usuarios ?? '/usuarios'}`;
+  private api = `${environment.apiBase}${environment.services?.backend?.usuarios ?? '/usuarios'}`;
 
   constructor(private http: HttpClient) {}
 
@@ -119,6 +121,8 @@ export class UsuariosService {
   }
 
   getPaginas(): Observable<Pagina[]> {
-    return this.http.get<Pagina[]>(`${this.api}/paginas`);
+    return this.http
+      .get<Pagina[]>(`${this.api}/paginas`)
+      .pipe(map((paginas) => mergePagesWithRegistry(paginas) as Pagina[]));
   }
 }

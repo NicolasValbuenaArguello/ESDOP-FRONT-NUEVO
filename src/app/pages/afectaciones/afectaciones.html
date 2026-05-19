@@ -1,0 +1,692 @@
+<div class="afectaciones-page">
+  <app-sidebar></app-sidebar>
+
+  <div class="afectaciones-shell">
+    <div class="afectaciones-root">
+      <section class="afectaciones-hero">
+        <div class="hero-copy-block">
+          <p class="eyebrow">Centro de registro</p>
+          <h1>Afectaciones</h1>
+          <p class="hero-copy">
+            Gestiona el cargue, seguimiento y consulta de afectaciones en una vista institucional,
+            clara y preparada para crecer con nuevas capacidades operativas.
+          </p>
+        </div>
+
+        <nav class="submenu-afectaciones">
+          <button
+            *ngFor="let sub of submenus"
+            type="button"
+            [class.activo]="submenuActivo.key === sub.key"
+            (click)="seleccionarSubmenu(sub)">
+            {{ sub.label }}
+          </button>
+        </nav>
+      </section>
+
+      <ng-container *ngIf="puedeVerAfectaciones; else sinPermiso">
+        <section *ngIf="submenuActivo.key === 'listado'">
+          <div class="content-card listing-card">
+            <div class="section-heading section-heading--listing">
+              <div>
+                <p class="section-kicker">Gestion de registros</p>
+                <h2>Listado de afectaciones</h2>
+                <p>
+                  Consulta, revisa, filtra y administra cada registro sin salir del modulo.
+                </p>
+              </div>
+
+              <div class="listing-hero-metrics">
+                <article class="metric-card">
+                  <span>Total backend</span>
+                  <strong>{{ totalAfectaciones }}</strong>
+                </article>
+                <article class="metric-card">
+                  <span>Mostrando</span>
+                  <strong>{{ afectaciones.length }}</strong>
+                </article>
+              </div>
+            </div>
+
+            <div
+              *ngIf="listFeedback"
+              class="feedback-card"
+              [class.feedback-card--success]="listFeedback.type === 'success'"
+              [class.feedback-card--error]="listFeedback.type === 'error'"
+              [class.feedback-card--warning]="listFeedback.type === 'warning'">
+              <div class="feedback-card__icon" aria-hidden="true">
+                <span *ngIf="listFeedback.type === 'success'">OK</span>
+                <span *ngIf="listFeedback.type !== 'success'">!</span>
+              </div>
+
+              <div class="feedback-card__content">
+                <strong>{{ listFeedback.title }}</strong>
+                <p>{{ listFeedback.message }}</p>
+                <small>{{ listFeedback.detail }}</small>
+              </div>
+
+              <button type="button" class="feedback-card__close" (click)="cerrarListFeedback()" aria-label="Cerrar mensaje">
+                X
+              </button>
+            </div>
+
+            <div class="listing-toolbar">
+              <div class="listing-toolbar__copy">
+                <strong>Panel operativo</strong>
+                <p>
+                  Usa los filtros para acotar resultados y entra por registro para ver, editar o eliminar.
+                </p>
+              </div>
+
+              <div class="listing-toolbar__actions">
+                <button type="button" class="ghost-pill" (click)="abrirFiltros()">
+                  Filtros
+                </button>
+                <button
+                  type="button"
+                  class="primary-pill primary-pill--toolbar"
+                  [disabled]="!puedeConsultarListado"
+                  (click)="recargarListado()">
+                  Recargar
+                </button>
+              </div>
+            </div>
+
+            <div class="filter-chip-row" *ngIf="hayFiltrosActivos">
+              <span class="filter-chip" *ngFor="let filtro of filtrosAplicadosLista">{{ filtro }}</span>
+            </div>
+
+            <div class="listing-state" *ngIf="loadingListado">
+              <div class="loading-banner">
+                <span class="submit-loader__spinner" aria-hidden="true"></span>
+                <div>
+                  <strong>Cargando listado...</strong>
+                  <p>Estamos consultando los registros del microservicio de afectaciones.</p>
+                </div>
+              </div>
+
+              <div class="listing-grid listing-grid--skeleton">
+                <article class="record-card record-card--skeleton" *ngFor="let item of skeletonCards; index as i">
+                  <div class="skeleton-line skeleton-line--sm"></div>
+                  <div class="skeleton-line skeleton-line--lg"></div>
+                  <div class="skeleton-line"></div>
+                  <div class="record-card__meta">
+                    <span class="skeleton-pill"></span>
+                    <span class="skeleton-pill"></span>
+                    <span class="skeleton-pill"></span>
+                  </div>
+                  <div class="record-card__actions">
+                    <span class="skeleton-button"></span>
+                    <span class="skeleton-button"></span>
+                    <span class="skeleton-button"></span>
+                  </div>
+                </article>
+              </div>
+            </div>
+
+            <div class="empty-state" *ngIf="!loadingListado && !afectaciones.length">
+              <div class="empty-state__icon">0</div>
+              <strong>No hay afectaciones para mostrar</strong>
+              <p>
+                {{ !haConsultadoListado
+                  ? 'Configura un rango de fechas en filtros y luego pulsa "Recargar" para consultar el listado.'
+                  : hayFiltrosActivos
+                  ? 'No encontramos registros con los filtros actuales. Puedes limpiarlos o probar otro rango.'
+                  : 'Cuando existan registros en el servicio, apareceran aqui listos para gestion.' }}
+              </p>
+              <button type="button" class="ghost-pill" *ngIf="hayFiltrosActivos" (click)="limpiarFiltros()">
+                Limpiar filtros
+              </button>
+            </div>
+
+            <div class="listing-grid" *ngIf="!loadingListado && afectaciones.length">
+              <article class="record-card" *ngFor="let registro of afectaciones; trackBy: trackByAfectacionId">
+                <div class="record-card__head">
+                  <div>
+                    <p class="record-card__date">{{ formatearFecha(registro.fecha_evento) }}</p>
+                    <h3>{{ registro.afectacion || 'Afectacion sin titulo' }}</h3>
+                  </div>
+                  <span class="status-badge" [class.status-badge--ok]="registro.cargado">
+                    {{ registro.cargado ? 'SICOE' : 'Pendiente' }}
+                  </span>
+                </div>
+
+                <div class="record-card__summary">
+                  <div class="summary-item">
+                    <span>Departamento</span>
+                    <strong>{{ registro.departamento || 'Sin dato' }}</strong>
+                  </div>
+                  <div class="summary-item">
+                    <span>Municipio</span>
+                    <strong>{{ registro.municipio || 'Sin dato' }}</strong>
+                  </div>
+                  <div class="summary-item">
+                    <span>Grado</span>
+                    <strong>{{ registro.grado || 'Sin dato' }}</strong>
+                  </div>
+                  <div class="summary-item">
+                    <span>Personal</span>
+                    <strong>{{ registro.nombrey_apellidos || 'Sin dato' }}</strong>
+                  </div>
+                  <div class="summary-item">
+                    <span>Division padre</span>
+                    <strong>{{ registro.division_padre || 'Sin dato' }}</strong>
+                  </div>
+                  <div class="summary-item">
+                    <span>Enemigo</span>
+                    <strong>{{ registro.enemigo || 'Sin dato' }}</strong>
+                  </div>
+                </div>
+
+                <div class="record-card__foot">
+                  <div class="record-card__tags">
+                    <span class="tag-soft">{{ registro.hora_evento ? (registro.hora_evento | slice:0:5) : 'Sin hora' }}</span>
+                    <span class="tag-soft">{{ registro.division || 'Sin division' }}</span>
+                    <span class="tag-soft">{{ registro.unidad || 'Sin unidad' }}</span>
+                  </div>
+
+                  <div class="record-card__actions">
+                    <button type="button" class="action-button" (click)="abrirDetalle(registro)">
+                      <span class="action-button__icon">V</span>
+                      Ver
+                    </button>
+                    <button type="button" class="action-button" (click)="editarAfectacion(registro)">
+                      <span class="action-button__icon">E</span>
+                      Editar
+                    </button>
+                    <button
+                      type="button"
+                      class="action-button action-button--danger"
+                      [disabled]="registroEnProcesoId === registro.id"
+                      (click)="confirmarEliminar(registro)">
+                      <span class="action-button__icon">
+                        {{ registroEnProcesoId === registro.id ? '...' : 'X' }}
+                      </span>
+                      Eliminar
+                    </button>
+                  </div>
+                </div>
+              </article>
+            </div>
+          </div>
+        </section>
+
+        <section *ngIf="submenuActivo.key === 'creacion'">
+          <div class="content-card form-card">
+            <div class="section-heading">
+              <div>
+                <p class="section-kicker">{{ estaEnModoEdicion ? 'Edicion activa' : 'Formulario maestro' }}</p>
+                <h2>{{ estaEnModoEdicion ? 'Editar afectacion' : 'Registro de afectacion' }}</h2>
+                <p>
+                  {{ estaEnModoEdicion
+                    ? 'Estas reutilizando el mismo formulario para actualizar un registro existente.'
+                    : 'Formulario institucional para consolidar informacion operacional, organizacional y territorial.' }}
+                </p>
+              </div>
+              <div class="hero-meta">
+                <span class="meta-chip">Responsive</span>
+                <span class="meta-chip">Reactivo</span>
+                <span class="meta-chip">{{ estaEnModoEdicion ? 'Edicion' : 'Creacion' }}</span>
+              </div>
+            </div>
+
+            <div
+              *ngIf="feedback"
+              class="feedback-card"
+              [class.feedback-card--success]="feedback.type === 'success'"
+              [class.feedback-card--error]="feedback.type === 'error'"
+              [class.feedback-card--warning]="feedback.type === 'warning'">
+              <div class="feedback-card__icon" aria-hidden="true">
+                <span *ngIf="feedback.type === 'success'">OK</span>
+                <span *ngIf="feedback.type !== 'success'">!</span>
+              </div>
+
+              <div class="feedback-card__content">
+                <strong>{{ feedback.title }}</strong>
+                <p>{{ feedback.message }}</p>
+                <small>{{ feedback.detail }}</small>
+              </div>
+
+              <button type="button" class="feedback-card__close" (click)="cerrarFeedback()" aria-label="Cerrar mensaje">
+                X
+              </button>
+            </div>
+
+            <form [formGroup]="form" (ngSubmit)="submit()" class="afectaciones-form" novalidate>
+              <div class="submit-loader" *ngIf="loading" aria-live="polite">
+                <span class="submit-loader__spinner" aria-hidden="true"></span>
+                <div>
+                  <strong>{{ estaEnModoEdicion ? 'Actualizando afectacion...' : 'Cargando afectacion...' }}</strong>
+                  <p>Estamos enviando la informacion al microservicio.</p>
+                </div>
+              </div>
+
+              <section class="form-section">
+                <div class="form-section__header">
+                  <p class="section-kicker">Seccion 1</p>
+                  <h3>Informacion del evento</h3>
+                  <p>Define cuando ocurrio el evento, su naturaleza y la ubicacion principal.</p>
+                </div>
+
+                <div class="form-grid form-grid--three">
+                  <label class="field" [class.field--invalid]="fieldInvalid('fecha_evento')">
+                    <span class="field__label">Fecha del evento</span>
+                    <input type="date" formControlName="fecha_evento" />
+                    <small class="field__error" *ngIf="fieldInvalid('fecha_evento')">{{ getErrorMessage('fecha_evento') }}</small>
+                  </label>
+
+                  <label class="field" [class.field--invalid]="fieldInvalid('hora_evento')">
+                    <span class="field__label">Hora del evento</span>
+                    <input type="time" formControlName="hora_evento" />
+                    <small class="field__error" *ngIf="fieldInvalid('hora_evento')">{{ getErrorMessage('hora_evento') }}</small>
+                  </label>
+
+                  <label class="field" [class.field--invalid]="fieldInvalid('afectacion')">
+                    <span class="field__label">Afectacion</span>
+                    <input type="text" formControlName="afectacion" placeholder="Tipo o nombre corto de la afectacion" />
+                    <small class="field__error" *ngIf="fieldInvalid('afectacion')">{{ getErrorMessage('afectacion') }}</small>
+                  </label>
+
+                  <label class="field" [class.field--invalid]="fieldInvalid('departamento')">
+                    <span class="field__label">Departamento</span>
+                    <select formControlName="departamento" [disabled]="loading">
+                      <option value="">Seleccione un departamento</option>
+                      <option *ngFor="let departamento of departamentos" [value]="departamento">{{ departamento }}</option>
+                    </select>
+                    <small class="field__hint" *ngIf="erroresCarga.ubicacion && !departamentos.length">{{ erroresCarga.ubicacion }}</small>
+                    <small class="field__error" *ngIf="fieldInvalid('departamento')">{{ getErrorMessage('departamento') }}</small>
+                  </label>
+
+                  <label class="field" [class.field--loading]="loadingState.municipios" [class.field--invalid]="fieldInvalid('municipio')">
+                    <span class="field__label">Municipio</span>
+                    <select formControlName="municipio" [disabled]="loading || !form.controls.departamento.value || loadingState.municipios">
+                      <option value="">
+                        {{ loadingState.municipios ? 'Cargando municipios...' : 'Seleccione un municipio' }}
+                      </option>
+                      <option *ngFor="let municipio of municipios" [value]="municipio">{{ municipio }}</option>
+                    </select>
+                    <span class="field__loader" *ngIf="loadingState.municipios"></span>
+                    <small class="field__hint">Se habilita despues de elegir el departamento.</small>
+                    <small class="field__error" *ngIf="fieldInvalid('municipio')">{{ getErrorMessage('municipio') }}</small>
+                  </label>
+
+                  <label class="field" [class.field--invalid]="fieldInvalid('lugar')">
+                    <span class="field__label">Lugar</span>
+                    <input type="text" formControlName="lugar" placeholder="Vereda, sector, punto de referencia" [disabled]="loading" />
+                    <small class="field__error" *ngIf="fieldInvalid('lugar')">{{ getErrorMessage('lugar') }}</small>
+                  </label>
+                </div>
+              </section>
+
+              <section class="form-section">
+                <div class="form-section__header">
+                  <p class="section-kicker">Seccion 2</p>
+                  <h3>Informacion personal</h3>
+                  <p>Identifica a la persona involucrada con datos claros y trazables.</p>
+                </div>
+
+                <div class="form-grid form-grid--three">
+                  <label class="field" [class.field--loading]="loadingState.grados" [class.field--invalid]="fieldInvalid('grado')">
+                    <span class="field__label">Grado</span>
+                    <select formControlName="grado" [disabled]="loading || loadingState.grados || !grados.length">
+                      <option value="">
+                        {{ loadingState.grados ? 'Cargando grados...' : 'Seleccione un grado' }}
+                      </option>
+                      <option *ngFor="let grado of grados" [value]="grado.abreviatura">
+                        {{ grado.abreviatura }} - {{ grado.nombre }}
+                      </option>
+                    </select>
+                    <span class="field__loader" *ngIf="loadingState.grados"></span>
+                    <small class="field__hint" *ngIf="erroresCarga.grados">{{ erroresCarga.grados }}</small>
+                    <small class="field__error" *ngIf="fieldInvalid('grado')">{{ getErrorMessage('grado') }}</small>
+                  </label>
+
+                  <label class="field" [class.field--invalid]="fieldInvalid('clase')">
+                    <span class="field__label">Clase</span>
+                    <select formControlName="clase" [disabled]="loading">
+                      <option value="">Seleccione una clase</option>
+                      <option *ngFor="let clase of clases" [value]="clase">{{ clase }}</option>
+                    </select>
+                    <small class="field__error" *ngIf="fieldInvalid('clase')">{{ getErrorMessage('clase') }}</small>
+                  </label>
+
+                  <label class="field field--span-2" [class.field--invalid]="fieldInvalid('nombrey_apellidos')">
+                    <span class="field__label">Nombre y apellidos</span>
+                    <input type="text" formControlName="nombrey_apellidos" placeholder="Nombre completo" [disabled]="loading" />
+                    <small class="field__error" *ngIf="fieldInvalid('nombrey_apellidos')">{{ getErrorMessage('nombrey_apellidos') }}</small>
+                  </label>
+
+                  <label class="field" [class.field--invalid]="fieldInvalid('cedula')">
+                    <span class="field__label">Cedula</span>
+                    <input type="text" formControlName="cedula" placeholder="Numero de identificacion" [disabled]="loading" />
+                    <small class="field__error" *ngIf="fieldInvalid('cedula')">{{ getErrorMessage('cedula') }}</small>
+                  </label>
+
+                  <label class="field" [class.field--invalid]="fieldInvalid('edad')">
+                    <span class="field__label">Edad</span>
+                    <input type="number" formControlName="edad" min="0" placeholder="Edad" [disabled]="loading" />
+                    <small class="field__error" *ngIf="fieldInvalid('edad')">{{ getErrorMessage('edad') }}</small>
+                  </label>
+
+                  <label class="field" [class.field--invalid]="fieldInvalid('genero')">
+                    <span class="field__label">Genero</span>
+                    <select formControlName="genero" [disabled]="loading">
+                      <option value="">Seleccione un genero</option>
+                      <option *ngFor="let genero of generos" [value]="genero">{{ genero }}</option>
+                    </select>
+                    <small class="field__error" *ngIf="fieldInvalid('genero')">{{ getErrorMessage('genero') }}</small>
+                  </label>
+                </div>
+              </section>
+
+              <section class="form-section">
+                <div class="form-section__header">
+                  <p class="section-kicker">Seccion 3</p>
+                  <h3>Informacion organizacional</h3>
+                  <p>Usa la jerarquia institucional para evitar selecciones inconsistentes.</p>
+                </div>
+
+                <div class="form-grid form-grid--four">
+                  <label class="field" [class.field--invalid]="fieldInvalid('division_padre')">
+                    <span class="field__label">Division padre</span>
+                    <select formControlName="division_padre" [disabled]="loading">
+                      <option value="">Seleccione una division padre</option>
+                      <option *ngFor="let padre of divisionPadres" [value]="padre">{{ padre }}</option>
+                    </select>
+                    <small class="field__hint" *ngIf="erroresCarga.unidades && !divisionPadres.length">{{ erroresCarga.unidades }}</small>
+                    <small class="field__error" *ngIf="fieldInvalid('division_padre')">{{ getErrorMessage('division_padre') }}</small>
+                  </label>
+
+                  <label class="field" [class.field--loading]="loadingState.divisiones" [class.field--invalid]="fieldInvalid('division')">
+                    <span class="field__label">Division</span>
+                    <select formControlName="division" [disabled]="loading || !divisionPadreSeleccionada || loadingState.divisiones">
+                      <option value="">
+                        {{ loadingState.divisiones ? 'Cargando divisiones...' : 'Seleccione una division' }}
+                      </option>
+                      <option *ngFor="let division of divisiones" [value]="division">{{ division }}</option>
+                    </select>
+                    <span class="field__loader" *ngIf="loadingState.divisiones"></span>
+                    <small class="field__hint">Se limpia automaticamente cuando cambias la division padre.</small>
+                    <small class="field__error" *ngIf="fieldInvalid('division')">{{ getErrorMessage('division') }}</small>
+                  </label>
+
+                  <label class="field" [class.field--loading]="loadingState.brigadas" [class.field--invalid]="fieldInvalid('brigada')">
+                    <span class="field__label">Brigada</span>
+                    <select formControlName="brigada" [disabled]="loading || !divisionSeleccionada || loadingState.brigadas">
+                      <option value="">
+                        {{ loadingState.brigadas ? 'Cargando brigadas...' : 'Seleccione una brigada' }}
+                      </option>
+                      <option *ngFor="let brigada of brigadas" [value]="brigada">{{ brigada }}</option>
+                    </select>
+                    <span class="field__loader" *ngIf="loadingState.brigadas"></span>
+                    <small class="field__hint">Solo muestra brigadas validas para la division elegida.</small>
+                    <small class="field__error" *ngIf="fieldInvalid('brigada')">{{ getErrorMessage('brigada') }}</small>
+                  </label>
+
+                  <label class="field" [class.field--loading]="loadingState.unidades" [class.field--invalid]="fieldInvalid('unidad')">
+                    <span class="field__label">Unidad</span>
+                    <select formControlName="unidad" [disabled]="loading || !brigadaSeleccionada || loadingState.unidades">
+                      <option value="">
+                        {{ loadingState.unidades ? 'Cargando unidades...' : 'Seleccione una unidad' }}
+                      </option>
+                      <option *ngFor="let unidad of unidades" [value]="unidad">{{ unidad }}</option>
+                    </select>
+                    <span class="field__loader" *ngIf="loadingState.unidades"></span>
+                    <small class="field__hint">Ultimo nivel de la cadena organizacional.</small>
+                    <small class="field__error" *ngIf="fieldInvalid('unidad')">{{ getErrorMessage('unidad') }}</small>
+                  </label>
+                </div>
+              </section>
+
+              <section class="form-section">
+                <div class="form-section__header">
+                  <p class="section-kicker">Seccion 4</p>
+                  <h3>Informacion operacional</h3>
+                  <p>Captura el contexto tactico y la linea operacional asociada.</p>
+                </div>
+
+                <div class="form-grid form-grid--three">
+                  <label class="field" [class.field--invalid]="fieldInvalid('enemigo')">
+                    <span class="field__label">Enemigo</span>
+                    <select formControlName="enemigo" [disabled]="loading">
+                      <option value="">Seleccione un enemigo</option>
+                      <option *ngFor="let enemigo of enemigos" [value]="enemigo">{{ enemigo }}</option>
+                    </select>
+                    <small class="field__error" *ngIf="fieldInvalid('enemigo')">{{ getErrorMessage('enemigo') }}</small>
+                  </label>
+
+                  <label class="field field--span-2" [class.field--invalid]="fieldInvalid('estructura_afecta')">
+                    <span class="field__label">Estructura afecta</span>
+                    <input
+                      type="text"
+                      formControlName="estructura_afecta"
+                      placeholder="Describe la estructura afectada"
+                      [disabled]="loading" />
+                    <small class="field__hint">Usa una descripcion corta y clara.</small>
+                    <small class="field__error" *ngIf="fieldInvalid('estructura_afecta')">{{ getErrorMessage('estructura_afecta') }}</small>
+                  </label>
+
+                  <label class="field" [class.field--invalid]="fieldInvalid('tipo_operacion')">
+                    <span class="field__label">Tipo de operacion</span>
+                    <select formControlName="tipo_operacion" [disabled]="loading">
+                      <option value="">Seleccione una operacion</option>
+                      <option *ngFor="let tipo of tiposOperacion" [value]="tipo">{{ tipo }}</option>
+                    </select>
+                    <small class="field__error" *ngIf="fieldInvalid('tipo_operacion')">{{ getErrorMessage('tipo_operacion') }}</small>
+                  </label>
+                </div>
+              </section>
+
+              <section class="form-section">
+                <div class="form-section__header">
+                  <p class="section-kicker">Seccion 5</p>
+                  <h3>Informacion detallada</h3>
+                  <p>Registra el detalle narrativo y observaciones de apoyo.</p>
+                </div>
+
+                <div class="form-grid form-grid--two">
+                  <label class="field field--full" [class.field--invalid]="fieldInvalid('desccripcion_evento')">
+                    <span class="field__label">Descripcion del evento</span>
+                    <textarea
+                      formControlName="desccripcion_evento"
+                      rows="5"
+                      placeholder="Describe el hecho, las circunstancias y el resultado operacional."
+                      [disabled]="loading"></textarea>
+                    <small class="field__error" *ngIf="fieldInvalid('desccripcion_evento')">{{ getErrorMessage('desccripcion_evento') }}</small>
+                  </label>
+
+                  <label class="field field--full">
+                    <span class="field__label">Observaciones</span>
+                    <textarea
+                      formControlName="observaciones"
+                      rows="4"
+                      placeholder="Observaciones complementarias, seguimiento o novedades."
+                      [disabled]="loading"></textarea>
+                  </label>
+
+                  <div class="field field--full">
+                    <span class="field__label">Fue cargado al SICOE?</span>
+                    <label class="switch-card" [class.switch-card--active]="cargadoSicoe">
+                      <div class="switch-copy">
+                        <strong>{{ cargadoSicoe ? 'Si, fue cargado' : 'No ha sido cargado' }}</strong>
+                        <small>Marca este interruptor para dejar listo el estado del registro frente al SICOE.</small>
+                      </div>
+
+                      <span class="switch-control">
+                        <input type="checkbox" formControlName="cargado" [disabled]="loading" />
+                        <span class="switch-track">
+                          <span class="switch-thumb"></span>
+                        </span>
+                        <span class="switch-text">{{ cargadoSicoe ? 'Si' : 'No' }}</span>
+                      </span>
+                    </label>
+                  </div>
+
+                  <label class="field" [class.field--invalid]="fieldInvalid('hr')">
+                    <span class="field__label">HR</span>
+                    <input type="text" formControlName="hr" placeholder="Codigo o referencia HR" [disabled]="loading" />
+                    <small class="field__error" *ngIf="fieldInvalid('hr')">{{ getErrorMessage('hr') }}</small>
+                  </label>
+                </div>
+              </section>
+
+              <div class="form-actions">
+                <div class="form-actions__summary">
+                  <strong>Estado del formulario</strong>
+                  <p>
+                    {{
+                      loading
+                        ? (estaEnModoEdicion ? 'Actualizando afectacion...' : 'Cargando afectacion...')
+                        : formularioInvalido
+                          ? 'Completa los campos obligatorios para guardar.'
+                          : 'Formulario listo para enviar.'
+                    }}
+                  </p>
+                </div>
+
+                <div class="form-actions__buttons">
+                  <button type="button" class="ghost-pill ghost-pill--soft" *ngIf="estaEnModoEdicion" (click)="cancelarEdicion()">
+                    Cancelar edicion
+                  </button>
+                  <button type="submit" class="primary-pill form-submit-button" [disabled]="formularioInvalido">
+                    <span class="button-loader" *ngIf="loading" aria-hidden="true"></span>
+                    {{ loading
+                      ? (estaEnModoEdicion ? 'Actualizando...' : 'Cargando...')
+                      : (estaEnModoEdicion ? 'Guardar cambios' : 'Guardar afectacion') }}
+                  </button>
+                </div>
+              </div>
+            </form>
+          </div>
+        </section>
+      </ng-container>
+
+      <section *ngIf="submenuActivo.key === 'estadistica'">
+        <div class="content-card content-card--empty">
+          <p class="section-kicker">Panel</p>
+          <h2>Estadistica</h2>
+          <p>Esta seccion queda lista para integrar los indicadores de afectaciones cuando definamos su fuente.</p>
+        </div>
+      </section>
+
+      <ng-template #sinPermiso>
+        <div class="alerta-permiso">
+          No tienes permiso para ver esta seccion.
+        </div>
+      </ng-template>
+    </div>
+  </div>
+</div>
+
+<div class="modal-backdrop" *ngIf="modalDetalleAbierto" (click)="cerrarDetalle()">
+  <section class="af-modal af-modal--detail" (click)="$event.stopPropagation()">
+    <div class="af-modal__head">
+      <div>
+        <p class="section-kicker">Detalle completo</p>
+        <h2>{{ detalleSeleccionado?.afectacion || 'Afectacion' }}</h2>
+        <p class="af-modal__subtitle">
+          {{ detalleSeleccionado ? formatearFecha(detalleSeleccionado.fecha_evento) : '' }}
+          <span *ngIf="detalleSeleccionado?.municipio"> · {{ detalleSeleccionado?.municipio }}, {{ detalleSeleccionado?.departamento }}</span>
+        </p>
+      </div>
+      <button type="button" class="feedback-card__close" (click)="cerrarDetalle()">X</button>
+    </div>
+
+    <div class="af-modal__body" *ngIf="detalleSeleccionado">
+      <section class="detail-section" *ngFor="let section of detalleSecciones">
+        <div class="detail-section__head">
+          <h3>{{ section.title }}</h3>
+          <p>{{ section.description }}</p>
+        </div>
+
+        <div class="detail-grid">
+          <article class="detail-item" *ngFor="let field of section.fields">
+            <span>{{ field.label }}</span>
+            <strong>{{ getDetalleValor(detalleSeleccionado, field.key) }}</strong>
+          </article>
+        </div>
+      </section>
+    </div>
+  </section>
+</div>
+
+<div class="modal-backdrop" *ngIf="modalFiltrosAbierto" (click)="cerrarFiltros()">
+  <section class="af-modal af-modal--filters" (click)="$event.stopPropagation()">
+    <div class="af-modal__head">
+      <div>
+        <p class="section-kicker">Busqueda avanzada</p>
+        <h2>Filtros del listado</h2>
+        <p class="af-modal__subtitle">
+          Estructura inicial preparada para crecer con nuevos criterios sin cambiar la experiencia principal.
+        </p>
+      </div>
+      <button type="button" class="feedback-card__close" (click)="cerrarFiltros()">X</button>
+    </div>
+
+    <form class="filter-form" [formGroup]="filtersForm" (ngSubmit)="aplicarFiltros()">
+      <div class="form-grid form-grid--three">
+        <label class="field" [class.field--invalid]="filterFieldInvalid('fecha_inicial')">
+          <span class="field__label">Fecha inicial</span>
+          <input type="date" formControlName="fecha_inicial" />
+          <small class="field__error" *ngIf="filterFieldInvalid('fecha_inicial')">La fecha inicial es obligatoria.</small>
+        </label>
+
+        <label class="field" [class.field--invalid]="filterFieldInvalid('fecha_final')">
+          <span class="field__label">Fecha final</span>
+          <input type="date" formControlName="fecha_final" />
+          <small class="field__error" *ngIf="filterFieldInvalid('fecha_final')">La fecha final es obligatoria.</small>
+        </label>
+
+        <label class="field">
+          <span class="field__label">Division</span>
+          <select formControlName="division">
+            <option value="">Todas las divisiones</option>
+            <option *ngFor="let division of todasLasDivisiones" [value]="division">{{ division }}</option>
+          </select>
+        </label>
+      </div>
+
+      <div class="modal-actions">
+        <button type="button" class="ghost-pill ghost-pill--soft" (click)="limpiarFiltros()">
+          Limpiar filtros
+        </button>
+        <button type="submit" class="primary-pill" [disabled]="filtersForm.invalid">
+          Guardar filtros
+        </button>
+      </div>
+    </form>
+  </section>
+</div>
+
+<div class="modal-backdrop" *ngIf="modalEliminarAbierto" (click)="cancelarEliminar()">
+  <section class="af-modal af-modal--confirm" (click)="$event.stopPropagation()">
+    <div class="af-modal__head">
+      <div>
+        <p class="section-kicker">Confirmacion</p>
+        <h2>Eliminar afectacion</h2>
+        <p class="af-modal__subtitle">
+          Esta accion eliminara el registro seleccionado y actualizara el listado.
+        </p>
+      </div>
+      <button type="button" class="feedback-card__close" (click)="cancelarEliminar()">X</button>
+    </div>
+
+    <div class="confirm-box">
+      <strong>{{ afectacionAEliminar?.afectacion || 'Registro seleccionado' }}</strong>
+      <p>
+        {{ afectacionAEliminar?.nombrey_apellidos || 'Sin nombre' }}
+        <span *ngIf="afectacionAEliminar?.fecha_evento"> · {{ formatearFecha(afectacionAEliminar?.fecha_evento || '') }}</span>
+      </p>
+      <small>Confirma solo si estas seguro. Esta validacion evita eliminaciones accidentales.</small>
+    </div>
+
+    <div class="modal-actions">
+      <button type="button" class="ghost-pill ghost-pill--soft" (click)="cancelarEliminar()">
+        Cancelar
+      </button>
+      <button type="button" class="primary-pill primary-pill--danger" (click)="eliminarAfectacionConfirmada()">
+        Confirmar eliminacion
+      </button>
+    </div>
+  </section>
+</div>

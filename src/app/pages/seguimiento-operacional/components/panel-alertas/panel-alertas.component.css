@@ -1,0 +1,83 @@
+:host {
+  display: contents;
+}
+
+.panel_block {
+  padding: 18px;
+  display: grid;
+  gap: 14px;
+  border-radius: 22px;
+  border: 1px solid rgba(148, 163, 184, 0.12);
+  background: rgba(30, 41, 59, 0.48);
+}
+
+.panel_block_head h3,
+.alerta_card strong {
+  margin: 0;
+  color: #f8fbff;
+}
+
+.panel_badge {
+  display: inline-flex;
+  color: #8fc9ff;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+
+.alerta_card {
+  padding: 14px 16px;
+  display: grid;
+  gap: 8px;
+  border-radius: 18px;
+  border: 1px solid rgba(148, 163, 184, 0.12);
+  background: rgba(15, 23, 42, 0.44);
+  transition: transform 0.2s ease, border-color 0.2s ease, background 0.2s ease;
+}
+
+.alerta_card:hover {
+  transform: translateY(-1px);
+  border-color: rgba(125, 211, 252, 0.24);
+}
+
+.alerta_card_critica {
+  border-color: rgba(239, 68, 68, 0.28);
+  background: rgba(127, 29, 29, 0.18);
+}
+
+.alerta_card_alerta {
+  border-color: rgba(245, 158, 11, 0.28);
+  background: rgba(120, 53, 15, 0.14);
+}
+
+.alerta_topline {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.alerta_card p,
+.alerta_card small {
+  margin: 0;
+  color: #9fb0ca;
+  line-height: 1.55;
+}
+
+.alerta_topline span {
+  color: #8fc9ff;
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
+@media (max-width: 640px) {
+  .panel_block {
+    padding: 16px;
+  }
+
+  .alerta_topline {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}

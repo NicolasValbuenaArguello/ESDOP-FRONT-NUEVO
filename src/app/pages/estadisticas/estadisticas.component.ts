@@ -14,10 +14,11 @@ import html2canvas from 'html2canvas';
 import leafletImage from 'leaflet-image';
 import * as L from 'leaflet';
 import 'leaflet-draw';
+import * as XLSX from 'xlsx';
 import { SidebarComponent } from '../../shared/sidebar/sidebar.component';
 import { environment } from '../../../environments/environment';
 import { HttpClient } from '@angular/common/http';
-import { catchError, throwError } from 'rxjs';
+import { catchError, finalize, throwError, timeout } from 'rxjs';
 import { AuthService, PermisoAcceso } from '../../services/auth';
 import { UnidadesTreeService } from '../../services/unidades-tree.service';
 
@@ -32,6 +33,10 @@ type Evento = {
     cantidad: number;
     ubicacion: string;
     division: string;
+    fecha: string;
+    enemigo: string;
+    hr: string;
+    resumen: string;
   }>;
 };
 
@@ -52,6 +57,10 @@ type MapaPunto = {
   cantidadRegistros: number;
   latitudRender: number;
   longitudRender: number;
+  fecha: string;
+  enemigo: string;
+  hr: string;
+  resumen: string;
 };
 
 type CoordinateSystem = 'decimal' | 'dms';
@@ -61,6 +70,15 @@ type MapLegendItem = {
   color: string;
   kind?: 'dot' | 'line';
 };
+
+type AsyncButtonState = 'idle' | 'loading' | 'success' | 'error';
+
+type PuntoActivo = Evento['puntos'][number] & {
+  tipo: string;
+  tipoKey: string;
+};
+
+type PuntoFiltradoExportable = MapaPunto;
 
 @Component({
   selector: 'app-estadisticas',
@@ -94,9 +112,9 @@ export class EstadisticasComponent implements AfterViewInit, OnDestroy {
     return apoyo ? apoyo.texto : '';
   }
 
-    /**
-   * Devuelve documento Selecionado de infraestructura.
-   */
+  /**
+ * Devuelve documento Selecionado de infraestructura.
+ */
   getTextoDocumentoInfraSeleccionado(): string {
     if (!this.documentoInfraSeleccionado || typeof this.documentoInfraSeleccionado !== 'object') return '';
     const documentoId = this.documentoInfraSeleccionado.id;
@@ -143,11 +161,11 @@ export class EstadisticasComponent implements AfterViewInit, OnDestroy {
     { id: 'hop_apoyo_brcmi', valor: 'SI', texto: 'UNIDAD BRCMI' }
 
   ];
- documentosInfraestructura= [
+  documentosInfraestructura = [
     { id: 'infraestructuraCede3', valor: 'infraestructuraCede3', texto: 'Infraestructura Diseño CEDE3' },
     { id: 'infraestructuraDirop', valor: 'infraestructuraDirop', texto: 'Infraestructura Diseño DIROP' },
     { id: 'infraestructuraEjc', valor: 'infraestructuraEjc', texto: 'Infraestructura Diseño EJC' },
- ];
+  ];
 
 
   apoyoSeleccionado: {
@@ -155,7 +173,7 @@ export class EstadisticasComponent implements AfterViewInit, OnDestroy {
     valor: string;
     texto: string;
   } | null = null;
-documentoInfraSeleccionado: {
+  documentoInfraSeleccionado: {
     id: string;
     valor: string;
     texto: string;
@@ -243,8 +261,8 @@ documentoInfraSeleccionado: {
   public mostrarConvencionesModal = false;
   readonly allTypesToken = '__ALL_TYPES__';
 
-  private api = `${environment.apiBase}${environment.services?.dashboard ?? '/dashboard'}`;
-  private api_2 = `${environment.apiBase}${environment.services?.generar_pptx ?? '/generar_pptx'}`;
+  private api = `${environment.mapaBase}${environment.services?.mapa?.dashboard ?? '/dashboard'}`;
+  private api_2 = `${environment.mapaBase}${environment.services?.mapa?.generar_pptx ?? '/generar_pptx'}`;
   mostrarPivotModal = false;
 
   mostrarGraficasModal = false;
@@ -258,6 +276,10 @@ documentoInfraSeleccionado: {
   mostrarSelectorEnemigoModal = false;
   exportingMapImage = false;
   mostrarSelectorOperacionalModal = false;
+  puntosFiltradosPorGeometria: PuntoFiltradoExportable[] = [];
+  exportandoPuntosExcel = false;
+  exportandoPuntosKml = false;
+  exportacionPuntosStatusMsg = 'Dibuja un círculo, polígono o rectángulo para habilitar la exportación espacial.';
 
   // Descargar gráficas como imagen (usa html2canvas)
   async descargarGraficasComoImagen() {
@@ -461,6 +483,10 @@ documentoInfraSeleccionado: {
 
   descargadoDocumentoStatusMsg = '';
   descargandoDocumento = false;
+  descargaDisponible = false;
+  dashboardRequestState: AsyncButtonState = 'idle';
+  downloadRequestState: AsyncButtonState = 'idle';
+  private readonly requestTimeoutMs = 60000;
 
   // Paleta de colores para tipos
   readonly palette = [
@@ -597,7 +623,11 @@ documentoInfraSeleccionado: {
                   longitud: typeof p.longitud === 'string' ? parseFloat(p.longitud) : p.longitud,
                   cantidad: typeof p.cantidad === 'string' ? parseFloat(p.cantidad) : p.cantidad,
                   ubicacion: p.ubicacion,
-                  division: p.division
+                  division: p.division,
+                  fecha: p.fecha,
+                  enemigo: p.enemigo,
+                  hr: p.hr,
+                  resumen: p.resumen
                 })));
               }
             }
@@ -972,6 +1002,21 @@ documentoInfraSeleccionado: {
       this.ngZone.run(() => {
         this.decorateLayer(layer, layerType);
         this.editableLayers.addLayer(layer);
+        this.actualizarPuntosFiltradosPorGeometria();
+        this.cdr.markForCheck();
+      });
+    });
+
+    this.map.on('draw:edited', () => {
+      this.ngZone.run(() => {
+        this.actualizarPuntosFiltradosPorGeometria();
+        this.cdr.markForCheck();
+      });
+    });
+
+    this.map.on('draw:deleted', () => {
+      this.ngZone.run(() => {
+        this.actualizarPuntosFiltradosPorGeometria();
         this.cdr.markForCheck();
       });
     });
@@ -1216,7 +1261,7 @@ documentoInfraSeleccionado: {
     this.mostrarSelectorLugarModal = false;
     this.mostrarSelectorEnemigoModal = false;
   }
- cerrarSelectorDocumentosModal() {
+  cerrarSelectorDocumentosModal() {
     this.mostrarDocumentosModal = false;
   }
   cerrarSelectorUnidadesModal() {
@@ -1262,7 +1307,7 @@ documentoInfraSeleccionado: {
   }
   limpiarDocumentos() {
 
- 
+
     this.documentoInfraSeleccionado = null;
 
 
@@ -1610,7 +1655,7 @@ documentoInfraSeleccionado: {
     if (this.filtrosForm.hechos) {
       resumen.push(`Hecho: ${this.getHechoSeleccionadoNombre()}`);
     }
-        // Si hay un hecho seleccionado, mostrarlo en el resumen
+    // Si hay un hecho seleccionado, mostrarlo en el resumen
     if (this.filtrosForm.hechos) {
       resumen.push(`Hecho: ${this.getHechoSeleccionadoNombre()}`);
     }
@@ -1632,9 +1677,9 @@ documentoInfraSeleccionado: {
     }
     return resumen;
   }
-      /**
-   * Devuelve el nombre del resultado Conjunto seleccionado, si existe.
-   */
+  /**
+* Devuelve el nombre del resultado Conjunto seleccionado, si existe.
+*/
   getResultadoConjuntoSeleccionadoNombre(): string {
     const resultado = this.filtrosForm.resultadosConjuntos;
     if (!resultado) return '';
@@ -1662,9 +1707,9 @@ documentoInfraSeleccionado: {
     const found = this.opcionesSubFiltros.resultadosGaulas.find(o => o === resultado);
     return found || resultado;
   }
-    /**
-   * Devuelve el nombre de la estrategia afectada seleccionada, si existe.
-   */
+  /**
+ * Devuelve el nombre de la estrategia afectada seleccionada, si existe.
+ */
   getEstrategiaAfectaSeleccionadaNombre(): string {
     const estrategia = this.filtrosForm.estrategiasAfecta;
     if (!estrategia) return '';
@@ -1704,8 +1749,8 @@ documentoInfraSeleccionado: {
     const found = this.opcionesSubFiltros.operaciones.find(o => o === op);
     return found || op;
   }
-  
-    getResumenDocumentosAplicados(): string[] {
+
+  getResumenDocumentosAplicados(): string[] {
     const resumen = [
 
       ...this.getDocSeleccionadosInfraestrucura().map(Documento => ` ${Documento.texto}`),
@@ -1757,7 +1802,7 @@ documentoInfraSeleccionado: {
     return this.getResumenSubFiltrosAplicados().length > 0;
   }
   tieneDocumentosActivos(): boolean {
-    
+
     return this.getResumenDocumentosAplicados().length > 0;
   }
 
@@ -1895,6 +1940,224 @@ documentoInfraSeleccionado: {
     const decimal = degrees + (minutes / 60) + (seconds / 3600);
     const sign = hemisphere === 'S' || hemisphere === 'W' ? -1 : 1;
     return decimal * sign;
+  }
+
+  descargarPuntosFiltradosExcel() {
+    if (!this.puedeDescargarPuntosExcel) {
+      this.exportacionPuntosStatusMsg = this.hayGeometriasExportables
+        ? 'La geometría actual no contiene puntos para exportar.'
+        : 'Dibuja un círculo, polígono o rectángulo para habilitar la exportación espacial.';
+      this.cdr.markForCheck();
+      return;
+    }
+
+    this.exportandoPuntosExcel = true;
+    this.exportacionPuntosStatusMsg = 'Generando archivo Excel con puntos filtrados...';
+    this.cdr.markForCheck();
+
+    setTimeout(() => {
+      try {
+        const rows = this.puntosFiltradosPorGeometria.map((punto) => ({
+          tipo: punto.tipo || 'Tipo',
+          fecha: punto.fecha || '',
+          cantidad: punto.cantidad ?? 0,
+          ubicacion: punto.ubicacion || '',
+          division: punto.division || '',
+          enemigo: punto.enemigo || '',
+          hr: punto.hr || '',
+          resumen: punto.resumen || '',
+          latitud: punto.latitud,
+          longitud: punto.longitud
+        }));
+
+        const worksheet = XLSX.utils.json_to_sheet(rows);
+        const workbook = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(workbook, worksheet, 'Puntos');
+
+        const excelBuffer = XLSX.write(workbook, {
+          bookType: 'xlsx',
+          type: 'array'
+        });
+
+        this.descargarBlob(
+          new Blob([excelBuffer], {
+            type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+          }),
+          `${this.getMapExportFileName().replace(/\.kml$/i, '')}-puntos-filtrados.xlsx`
+        );
+
+        this.exportacionPuntosStatusMsg = `${rows.length} puntos exportados a Excel.`;
+      } catch (error) {
+        this.exportacionPuntosStatusMsg = 'No fue posible generar el archivo Excel.';
+      } finally {
+        this.exportandoPuntosExcel = false;
+        this.cdr.markForCheck();
+      }
+    }, 0);
+  }
+
+  descargarPuntosFiltradosKml() {
+    if (!this.puedeDescargarPuntosKml) {
+      this.exportacionPuntosStatusMsg = this.hayGeometriasExportables
+        ? 'La geometría actual no contiene puntos para exportar.'
+        : 'Dibuja un círculo, polígono o rectángulo para habilitar la exportación espacial.';
+      this.cdr.markForCheck();
+      return;
+    }
+
+    this.exportandoPuntosKml = true;
+    this.exportacionPuntosStatusMsg = 'Generando archivo KML con puntos filtrados...';
+    this.cdr.markForCheck();
+
+    setTimeout(() => {
+      try {
+        const placemarks = this.puntosFiltradosPorGeometria
+          .map((punto, index) => this.puntoFiltradoToKml(punto, index + 1))
+          .filter((placemark): placemark is string => Boolean(placemark));
+
+        const styles = this.buildKmlStyles();
+        const kml = `<?xml version="1.0" encoding="UTF-8"?>\n<kml xmlns="http://www.opengis.net/kml/2.2">\n  <Document>\n    <name>Puntos filtrados</name>\n    ${styles.join('\n    ')}\n    ${placemarks.join('\n    ')}\n  </Document>\n</kml>`;
+
+        this.descargarBlob(
+          new Blob([kml], {
+            type: 'application/vnd.google-earth.kml+xml;charset=utf-8'
+          }),
+          `${this.getMapExportFileName().replace(/\.kml$/i, '')}-puntos-filtrados.kml`
+        );
+
+        this.exportacionPuntosStatusMsg = `${placemarks.length} puntos exportados a KML.`;
+      } catch (error) {
+        this.exportacionPuntosStatusMsg = 'No fue posible generar el archivo KML.';
+      } finally {
+        this.exportandoPuntosKml = false;
+        this.cdr.markForCheck();
+      }
+    }, 0);
+  }
+
+  private actualizarPuntosFiltradosPorGeometria() {
+    const capas = this.obtenerCapasExportablesPorGeometria();
+
+    if (!capas.length) {
+      this.puntosFiltradosPorGeometria = [];
+      this.exportacionPuntosStatusMsg = 'Dibuja un círculo, polígono o rectángulo para habilitar la exportación espacial.';
+      return;
+    }
+
+    // Usamos las coordenadas renderizadas para que la selección espacial
+    // coincida con lo que el usuario ve en el mapa, incluso cuando hay
+    // puntos desplazados levemente para evitar superposición visual.
+    const puntos = this.prepararPuntosParaMapa();
+    this.puntosFiltradosPorGeometria = puntos.filter((punto) => {
+      const latlng = L.latLng(Number(punto.latitudRender), Number(punto.longitudRender));
+      return capas.some((capa) => this.puntoDentroDeCapa(latlng, capa));
+    });
+
+    this.exportacionPuntosStatusMsg = this.puntosFiltradosPorGeometria.length
+      ? `${this.puntosFiltradosPorGeometria.length} puntos detectados dentro de la geometría actual.`
+      : 'La geometría actual no contiene puntos para exportar.';
+  }
+
+  private obtenerCapasExportablesPorGeometria() {
+    return this.editableLayers.getLayers().filter((layer) => this.esCapaExportablePorGeometria(layer));
+  }
+
+  private esCapaExportablePorGeometria(layer: L.Layer): layer is L.Circle | L.Polygon {
+    return layer instanceof L.Circle || layer instanceof L.Polygon;
+  }
+
+  private puntoDentroDeCapa(point: L.LatLng, layer: L.Circle | L.Polygon) {
+    if (layer instanceof L.Circle) {
+      return point.distanceTo(layer.getLatLng()) <= layer.getRadius();
+    }
+
+    return this.puntoDentroDePoligono(point, layer);
+  }
+
+  private puntoDentroDePoligono(point: L.LatLng, polygon: L.Polygon) {
+    const ring = this.extractPolygonRing(polygon.getLatLngs());
+
+    if (!ring.length || !polygon.getBounds().contains(point)) {
+      return false;
+    }
+
+    let inside = false;
+    const x = point.lng;
+    const y = point.lat;
+
+    for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+      const xi = ring[i].lng;
+      const yi = ring[i].lat;
+      const xj = ring[j].lng;
+      const yj = ring[j].lat;
+
+       if (this.puntoSobreSegmento(point, ring[j], ring[i])) {
+        return true;
+      }
+
+      const intersect = ((yi > y) !== (yj > y))
+        && (x < ((xj - xi) * (y - yi)) / ((yj - yi) || Number.EPSILON) + xi);
+
+      if (intersect) {
+        inside = !inside;
+      }
+    }
+
+    return inside;
+  }
+
+  private puntoSobreSegmento(point: L.LatLng, start: L.LatLng, end: L.LatLng) {
+    const tolerance = 1e-10;
+    const cross =
+      (point.lat - start.lat) * (end.lng - start.lng) -
+      (point.lng - start.lng) * (end.lat - start.lat);
+
+    if (Math.abs(cross) > tolerance) {
+      return false;
+    }
+
+    const dot =
+      (point.lng - start.lng) * (end.lng - start.lng) +
+      (point.lat - start.lat) * (end.lat - start.lat);
+
+    if (dot < 0) {
+      return false;
+    }
+
+    const squaredLength =
+      (end.lng - start.lng) * (end.lng - start.lng) +
+      (end.lat - start.lat) * (end.lat - start.lat);
+
+    return dot <= squaredLength;
+  }
+
+  private puntoFiltradoToKml(punto: PuntoFiltradoExportable, index: number) {
+    const nombre = `${punto.tipo || 'Punto'} ${index}`;
+    const styleId = this.getTipoStyleId(punto.tipoKey);
+    const description = this.construirDescripcionPuntoFiltrado(punto);
+
+    return `<Placemark><name>${this.escapeHtml(nombre)}</name><styleUrl>#${styleId}</styleUrl><description><![CDATA[${description}]]></description><Point><coordinates>${punto.longitud},${punto.latitud},0</coordinates></Point></Placemark>`;
+  }
+
+  private construirDescripcionPuntoFiltrado(punto: PuntoFiltradoExportable) {
+    return [
+      `<strong>Tipo:</strong> ${this.escapeHtml(punto.tipo || 'Tipo')}`,
+      `<strong>Cantidad:</strong> ${this.escapeHtml(String(punto.cantidad ?? 0))}`,
+      `<strong>Ubicación:</strong> ${this.escapeHtml(punto.ubicacion || '')}`,
+      `<strong>División:</strong> ${this.escapeHtml(punto.division || '')}`,
+      `<strong>Enemigo:</strong> ${this.escapeHtml(punto.enemigo || '')}`,
+      `<strong>HR:</strong> ${this.escapeHtml(punto.hr || '')}`,
+      `<strong>Resumen:</strong> ${this.escapeHtml(punto.resumen || '')}`
+    ].join('<br>');
+  }
+
+  private descargarBlob(blob: Blob, fileName: string) {
+    const url = URL.createObjectURL(blob);
+    const anchor = (this.document as Document).createElement('a');
+    anchor.href = url;
+    anchor.download = fileName;
+    anchor.click();
+    URL.revokeObjectURL(url);
   }
 
   exportDrawnData() {
@@ -2263,11 +2526,175 @@ documentoInfraSeleccionado: {
 
       const marker = L.marker(latLng, { icon })
         .bindPopup(
-          `<strong>${this.escapeHtml(tipo)}</strong><br>
-          <b>Cantidad:</b> ${punto.cantidad}<br>
-          <b>Registros agrupados:</b> ${punto.cantidadRegistros}<br>
-          <b>Ubicación:</b> ${this.escapeHtml(punto.ubicacion)}<br>
-          <b>División:</b> ${this.escapeHtml(punto.division)}`,
+          `
+            <div style="
+                border:1px solid #cfcfcf;
+                border-radius:7px;
+                overflow:hidden;
+                font-family:Arial, sans-serif;
+                min-width:260px;
+                box-shadow:0 2px 6px rgba(0,0,0,0.08);
+            ">
+
+                <div style="
+                    background:#e5e5e5;
+                    padding:8px 12px;
+                    font-weight:bold;
+                    font-size:14px;
+                    color:#333;
+                    border-bottom:1px solid #cfcfcf;
+                ">
+                    ${this.escapeHtml(tipo)}
+                </div>
+
+                <table style="
+                    width:100%;
+                    border-collapse:collapse;
+                    font-size:13px;
+                    background:#fff;
+                ">
+                    <tr>
+                        <td style="
+                            padding:6px 10px;
+                            font-weight:bold;
+                            background:#f7f7f7;
+                            border:1px solid #e0e0e0;
+                        ">
+                            Fecha
+                        </td>
+
+                        <td style="
+                            padding:6px 10px;
+                            border:1px solid #e0e0e0;
+                        ">
+                            ${this.escapeHtml(punto.fecha)}
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="
+                            padding:6px 10px;
+                            font-weight:bold;
+                            background:#f7f7f7;
+                            border:1px solid #e0e0e0;
+                            width:40%;
+                        ">
+                            Cantidad
+                        </td>
+
+                        <td style="
+                            padding:6px 10px;
+                            border:1px solid #e0e0e0;
+                        ">
+                            ${punto.cantidad}
+                        </td>
+                    </tr>
+
+                    <tr>
+                        <td style="
+                            padding:6px 10px;
+                            font-weight:bold;
+                            background:#f7f7f7;
+                            border:1px solid #e0e0e0;
+                        ">
+                            Registros agrupados
+                        </td>
+
+                        <td style="
+                            padding:6px 10px;
+                            border:1px solid #e0e0e0;
+                        ">
+                            ${punto.cantidadRegistros}
+                        </td>
+                    </tr>
+
+                    <tr>
+                        <td style="
+                            padding:6px 10px;
+                            font-weight:bold;
+                            background:#f7f7f7;
+                            border:1px solid #e0e0e0;
+                        ">
+                            Ubicación
+                        </td>
+
+                        <td style="
+                            padding:6px 10px;
+                            border:1px solid #e0e0e0;
+                        ">
+                            ${this.escapeHtml(punto.ubicacion)}
+                        </td>
+                    </tr>
+
+                    <tr>
+                        <td style="
+                            padding:6px 10px;
+                            font-weight:bold;
+                            background:#f7f7f7;
+                            border:1px solid #e0e0e0;
+                        ">
+                            División
+                        </td>
+
+                        <td style="
+                            padding:6px 10px;
+                            border:1px solid #e0e0e0;
+                        ">
+                            ${this.escapeHtml(punto.division)}
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="
+                            padding:6px 10px;
+                            font-weight:bold;
+                            background:#f7f7f7;
+                            border:1px solid #e0e0e0;
+                        ">
+                            Enemigo
+                        </td>
+
+                        <td style="
+                            padding:6px 10px;
+                            border:1px solid #e0e0e0;
+                        ">
+                            ${this.escapeHtml(punto.enemigo)}
+                        </td>
+                    </tr>
+<tr>
+    <td style="
+        padding:6px 10px;
+        font-weight:bold;
+        background:#f7f7f7;
+        border:1px solid #e0e0e0;
+        vertical-align:top;
+    ">
+        Resumen
+    </td>
+
+    <td style="
+        padding:0;
+        border:1px solid #e0e0e0;
+    ">
+
+        <div style="
+            max-height:300px;
+            overflow-y:auto;
+            padding:10px;
+            line-height:1.5;
+            background:#ffffff;
+            color:#333;
+            scrollbar-width:thin;
+        ">
+
+            ${this.escapeHtml(punto.resumen)}
+
+        </div>
+
+    </td>
+</tr>
+
+                </table>
+            </div>
+            `,
           { closeButton: false, offset: [0, -8] }
         );
 
@@ -2280,6 +2707,10 @@ documentoInfraSeleccionado: {
           cantidadRegistros: punto.cantidadRegistros,
           ubicacion: punto.ubicacion,
           division: punto.division,
+          fecha: punto.fecha,
+          enemigo: punto.enemigo,
+          hr: punto.hr,
+          resumen: punto.resumen,
           kmlStyleId: this.getTipoStyleId(punto.tipoKey),
           shapeType: 'json-marker'
         },
@@ -2291,6 +2722,9 @@ documentoInfraSeleccionado: {
 
       marker.addTo(this.markerLayer);
     }
+
+    this.actualizarPuntosFiltradosPorGeometria();
+
     if (bounds.length) {
       this.map.fitBounds(bounds, { padding: [40, 40], maxZoom: 7 });
       return;
@@ -2326,8 +2760,84 @@ documentoInfraSeleccionado: {
     return !!this.permisoEstadisticas?.puede_eliminar;
   }
 
+  get hayPeticionActiva() {
+    return this.cargandoDashboard || this.descargandoDocumento;
+  }
+
+  get hayGeometriasExportables() {
+    return this.obtenerCapasExportablesPorGeometria().length > 0;
+  }
+
+  get tienePuntosFiltradosPorGeometria() {
+    return this.puntosFiltradosPorGeometria.length > 0;
+  }
+
+  get puedeDescargarPuntosExcel() {
+    return this.puedeVerEstadisticasCrud
+      && this.hayGeometriasExportables
+      && this.tienePuntosFiltradosPorGeometria
+      && !this.exportandoPuntosExcel
+      && !this.exportandoPuntosKml;
+  }
+
+  get puedeDescargarPuntosKml() {
+    return this.puedeVerEstadisticasCrud
+      && this.hayGeometriasExportables
+      && this.tienePuntosFiltradosPorGeometria
+      && !this.exportandoPuntosExcel
+      && !this.exportandoPuntosKml;
+  }
+
+  get puedeConsultarDashboard() {
+    return this.puedeEditarEstadisticasCrud && !this.hayPeticionActiva;
+  }
+
+  get puedeDescargarDocumento() {
+    return this.puedeEditarEstadisticasCrud
+      && this.descargaDisponible
+      && !!this.documentoInfraSeleccionado
+      && !this.hayPeticionActiva;
+  }
+
+  isActionLoading(action: 'dashboard' | 'download') {
+    return action === 'dashboard' ? this.cargandoDashboard : this.descargandoDocumento;
+  }
+
+  isActionSuccess(action: 'dashboard' | 'download') {
+    return action === 'dashboard'
+      ? this.dashboardRequestState === 'success'
+      : this.downloadRequestState === 'success';
+  }
+
+  isActionError(action: 'dashboard' | 'download') {
+    return action === 'dashboard'
+      ? this.dashboardRequestState === 'error'
+      : this.downloadRequestState === 'error';
+  }
+
+  get activeRequestLabel() {
+    if (this.descargandoDocumento) {
+      return 'Generando documento para descarga';
+    }
+
+    if (this.cargandoDashboard) {
+      return 'Consultando información general';
+    }
+
+    return '';
+  }
+
 
   dashboardErrorMsg = '';
+  private setActionState(action: 'dashboard' | 'download', state: AsyncButtonState) {
+    if (action === 'dashboard') {
+      this.dashboardRequestState = state;
+      return;
+    }
+
+    this.downloadRequestState = state;
+  }
+
   actualizar_dashboard(): void {
     const rangoFechas = this.obtenerRangoFechasDashboard();
 
@@ -2384,7 +2894,7 @@ documentoInfraSeleccionado: {
       'apoyos',
       JSON.stringify(this.apoyoSeleccionado || [])
     );
-        formData.append(
+    formData.append(
       'subFiltroEnemigo',
       JSON.stringify(this.filtrosForm.subFiltroEnemigo || '')
     );
@@ -2423,24 +2933,43 @@ documentoInfraSeleccionado: {
       'resultadosConjuntos',
       JSON.stringify(this.filtrosForm.resultadosConjuntos || '')
     );
+
+    if (this.hayPeticionActiva) {
+      return;
+    }
+
+    this.descargaDisponible = false;
+    this.setActionState('download', 'idle');
     this.cargandoDashboard = true;
+    this.setActionState('dashboard', 'loading');
     this.dashboardStatusMsg = 'Actualizando dashboard...';
 
     this.http.post<any>(`${this.api}`, formData).pipe(
+      timeout(this.requestTimeoutMs),
       catchError(error => {
         console.error('Error al enviar fechas:', error);
+        this.dashboardStatusMsg = 'No fue posible actualizar el dashboard.';
+        this.setActionState('dashboard', 'error');
         return throwError(() => error);
+      }),
+      finalize(() => {
+        this.cargandoDashboard = false;
+        this.cdr.markForCheck();
       })
     ).subscribe({
       next: (resp) => {
         this.aplicarRespuestaDashboard(resp);
+        this.descargaDisponible = this.eventos.length > 0;
+        this.setActionState('dashboard', 'success');
         this.dashboardStatusMsg = this.construirMensajeDashboard();
+        this.descargadoDocumentoStatusMsg = this.descargaDisponible
+          ? 'Documento habilitado para descarga con los filtros actuales.'
+          : 'No hay datos disponibles para habilitar la descarga.';
         this.mostrarFiltrosModal = false;
-        this.cargandoDashboard = false;
       },
       error: (err) => {
         this.dashboardStatusMsg = 'No fue posible actualizar el dashboard.';
-        this.cargandoDashboard = false;
+        this.descargaDisponible = false;
       }
     });
   }
@@ -2499,7 +3028,7 @@ documentoInfraSeleccionado: {
     return { fechaInicio, fechaFin };
   }
 
-   private obtenerRangoFechasDashboard_2() {
+  private obtenerRangoFechasDashboard_2() {
     const fechaInicio = this.filtrosForm.lapsoFinalA;
     const fechaFin = this.filtrosForm.lapsoFinalB;
 
@@ -2524,7 +3053,7 @@ documentoInfraSeleccionado: {
     return { fechaInicio, fechaFin };
   }
 
-  
+
 
   private reconstruirColeccionesDashboard() {
     this.categorias = Array.from(new Set(this.eventos.map((evento) => evento.categoria)));
@@ -2637,6 +3166,10 @@ documentoInfraSeleccionado: {
       cantidad: Number(punto.cantidad) || 0,
       ubicacion: punto.ubicacion,
       division: punto.division,
+      fecha: punto.fecha,
+      enemigo: punto.enemigo,
+      hr: punto.hr,
+      resumen: punto.resumen,
       tipo: String((punto as any).tipo || this.tipoSeleccionado || 'Tipo'),
       tipoKey: String((punto as any).tipoKey || this.tipoSeleccionado || 'tipo'),
       cantidadRegistros: 1,
@@ -2690,296 +3223,319 @@ documentoInfraSeleccionado: {
   }
 
 
-descargar_documento(): void {
+  descargar_documento(): void {
 
-  // ==========================================
-  // RANGO FECHAS
-  // ==========================================
+    if (this.hayPeticionActiva) {
+      return;
+    }
 
-  const rangoFechas =
-    this.obtenerRangoFechasDashboard();
+    if (!this.descargaDisponible) {
+      this.downloadRequestState = 'error';
+      this.descargadoDocumentoStatusMsg =
+        'Primero consulta la información general para habilitar la descarga.';
+      return;
+    }
 
-  const rangoFechasFinal =
-    this.obtenerRangoFechasDashboard_2();
+    // ==========================================
+    // RANGO FECHAS
+    // ==========================================
 
-  if (!rangoFechasFinal) {
-    return;
-  }
-  if (!rangoFechas) {
-    return;
-  }
+    const rangoFechas =
+      this.obtenerRangoFechasDashboard();
+
+    const rangoFechasFinal =
+      this.obtenerRangoFechasDashboard_2();
+
+    if (!rangoFechasFinal) {
+      return;
+    }
+    if (!rangoFechas) {
+      return;
+    }
     if (!this.documentoInfraSeleccionado) {
-    return;
+      this.downloadRequestState = 'error';
+      this.descargadoDocumentoStatusMsg =
+        'Selecciona un documento antes de iniciar la descarga.';
+      return;
+    }
+
+    // ==========================================
+    // FORM DATA
+    // ==========================================
+
+    const formData = new FormData();
+
+    formData.append(
+      'fecha_inicio',
+      rangoFechas.fechaInicio
+    );
+
+    formData.append(
+      'fecha_fin',
+      rangoFechas.fechaFin
+    );
+
+    formData.append(
+      'fecha_inicio_final',
+      rangoFechasFinal.fechaInicio
+    );
+    formData.append(
+      'fecha_fin_final',
+      rangoFechasFinal.fechaFin
+    );
+
+    // ==========================================
+    // FILTROS MILITARES
+    // ==========================================
+
+    formData.append(
+      'subFiltroDivisionesFt',
+      JSON.stringify(
+        this.filtrosForm.subFiltroDivisionesFt || ''
+      )
+    );
+
+    formData.append(
+      'subFiltroDivisiones',
+      JSON.stringify(
+        this.filtrosForm.subFiltroDivisiones || ''
+      )
+    );
+
+    formData.append(
+      'subFiltroBrigadas',
+      JSON.stringify(
+        this.filtrosForm.subFiltroBrigadas || []
+      )
+    );
+
+    formData.append(
+      'subFiltroBatallones',
+      JSON.stringify(
+        this.filtrosForm.subFiltroBatallones || []
+      )
+    );
+
+    // ==========================================
+    // GEOGRAFICOS
+    // ==========================================
+
+    formData.append(
+      'subFiltroDepartamento',
+      JSON.stringify(
+        this.filtrosForm.subFiltroDepartamento || []
+      )
+    );
+
+    formData.append(
+      'subFiltroMunicipio',
+      JSON.stringify(
+        this.filtrosForm.subFiltroMunicipio || []
+      )
+    );
+
+    formData.append(
+      'subregion',
+      JSON.stringify(
+        this.subregionSeleccionada || null
+      )
+    );
+
+    // ==========================================
+    // ENEMIGO
+    // ==========================================
+
+    formData.append(
+      'enemigo',
+      JSON.stringify(
+        this.filtrosForm.subFiltroEnemigo || []
+      )
+    );
+
+    formData.append(
+      'enemigo_estructura',
+      JSON.stringify(
+        this.filtrosForm.subFiltroEnemigoEstructura || []
+      )
+    );
+
+    // ==========================================
+    // APOYOS
+    // ==========================================
+
+    formData.append(
+      'apoyos',
+      JSON.stringify(
+        this.apoyoSeleccionado || null
+      )
+    );
+
+    // ==========================================
+    // OPERACION
+    // ==========================================
+
+    formData.append(
+      'operacion',
+      JSON.stringify(
+        this.filtrosForm.subFiltroOperaciones || []
+      )
+    );
+
+    // ==========================================
+    // OTROS FILTROS
+    // ==========================================
+
+    formData.append(
+      'tipoOperacion',
+      JSON.stringify(
+        this.filtrosForm.tiposOperacion || []
+      )
+    );
+
+    formData.append(
+      'hecho',
+      JSON.stringify(
+        this.filtrosForm.hechos || []
+      )
+    );
+
+    formData.append(
+      'estrategiaAfecta',
+      JSON.stringify(
+        this.filtrosForm.estrategiasAfecta || []
+      )
+    );
+
+    formData.append(
+      'resultadosGaulas',
+      JSON.stringify(
+        this.filtrosForm.resultadosGaulas || ''
+      )
+    );
+
+    formData.append(
+      'resultadosCoordinados',
+      JSON.stringify(
+        this.filtrosForm.resultadosCoordinados || ''
+      )
+    );
+
+    formData.append(
+      'resultadosConjuntos',
+      JSON.stringify(
+        this.filtrosForm.resultadosConjuntos || ''
+      )
+    );
+
+    // ==========================================
+    // DOCUMENTO
+    // ==========================================
+
+    formData.append(
+      'documento',
+      JSON.stringify(
+        this.documentoInfraSeleccionado || ''
+      )
+    );
+
+    // ==========================================
+    // UI
+    // ==========================================
+
+    this.descargandoDocumento = true;
+    this.setActionState('download', 'loading');
+    this.descargadoDocumentoStatusMsg = 'Generando documento...';
+
+    this.dashboardStatusMsg =
+      'Generando documento...';
+
+    // ==========================================
+    // REQUEST
+    // ==========================================
+
+    this.http.post(
+
+      this.api_2,
+
+      formData,
+
+      {
+        responseType: 'blob'
+      }
+
+    ).pipe(
+
+      timeout(this.requestTimeoutMs),
+
+      catchError(error => {
+
+        console.error(
+          'Error al descargar documento:',
+          error
+        );
+
+        this.descargadoDocumentoStatusMsg =
+          'No fue posible descargar el documento.';
+
+        this.setActionState('download', 'error');
+
+        return throwError(() => error);
+      }),
+
+      finalize(() => {
+        this.descargandoDocumento = false;
+        this.cdr.markForCheck();
+      })
+
+    ).subscribe({
+
+      // ==========================================
+      // SUCCESS
+      // ==========================================
+
+      next: (blob: Blob) => {
+
+        const url =
+          window.URL.createObjectURL(blob);
+
+        const a =
+          document.createElement('a');
+
+        a.href = url;
+
+        a.download =
+          'reporte_operacional.pptx';
+
+        document.body.appendChild(a);
+
+        a.click();
+
+        a.remove();
+
+        window.URL.revokeObjectURL(url);
+
+        // ==========================================
+        // UI
+        // ==========================================
+
+        this.descargadoDocumentoStatusMsg =
+          'Documento descargado correctamente.';
+
+        this.setActionState('download', 'success');
+      },
+
+
+      // ==========================================
+      // ERROR
+      // ==========================================
+
+      error: () => {
+
+        this.dashboardStatusMsg =
+          'Error descargando documento.';
+
+        this.setActionState('download', 'error');
+      }
+    });
   }
-
-  // ==========================================
-  // FORM DATA
-  // ==========================================
-
-  const formData = new FormData();
-
-  formData.append(
-    'fecha_inicio',
-    rangoFechas.fechaInicio
-  );
-
-  formData.append(
-    'fecha_fin',
-    rangoFechas.fechaFin
-  );
-
-  formData.append(
-    'fecha_inicio_final',
-    rangoFechasFinal.fechaInicio
-  );
-  formData.append(
-    'fecha_fin_final',
-    rangoFechasFinal.fechaFin
-  );
-
-  // ==========================================
-  // FILTROS MILITARES
-  // ==========================================
-
-  formData.append(
-    'subFiltroDivisionesFt',
-    JSON.stringify(
-      this.filtrosForm.subFiltroDivisionesFt || ''
-    )
-  );
-
-  formData.append(
-    'subFiltroDivisiones',
-    JSON.stringify(
-      this.filtrosForm.subFiltroDivisiones || ''
-    )
-  );
-
-  formData.append(
-    'subFiltroBrigadas',
-    JSON.stringify(
-      this.filtrosForm.subFiltroBrigadas || []
-    )
-  );
-
-  formData.append(
-    'subFiltroBatallones',
-    JSON.stringify(
-      this.filtrosForm.subFiltroBatallones || []
-    )
-  );
-
-  // ==========================================
-  // GEOGRAFICOS
-  // ==========================================
-
-  formData.append(
-    'subFiltroDepartamento',
-    JSON.stringify(
-      this.filtrosForm.subFiltroDepartamento || []
-    )
-  );
-
-  formData.append(
-    'subFiltroMunicipio',
-    JSON.stringify(
-      this.filtrosForm.subFiltroMunicipio || []
-    )
-  );
-
-  formData.append(
-    'subregion',
-    JSON.stringify(
-      this.subregionSeleccionada || null
-    )
-  );
-
-  // ==========================================
-  // ENEMIGO
-  // ==========================================
-
-  formData.append(
-    'enemigo',
-    JSON.stringify(
-      this.filtrosForm.subFiltroEnemigo || []
-    )
-  );
-
-  formData.append(
-    'enemigo_estructura',
-    JSON.stringify(
-      this.filtrosForm.subFiltroEnemigoEstructura || []
-    )
-  );
-
-  // ==========================================
-  // APOYOS
-  // ==========================================
-
-  formData.append(
-    'apoyos',
-    JSON.stringify(
-      this.apoyoSeleccionado || null
-    )
-  );
-
-  // ==========================================
-  // OPERACION
-  // ==========================================
-
-  formData.append(
-    'operacion',
-    JSON.stringify(
-      this.filtrosForm.subFiltroOperaciones || []
-    )
-  );
-
-  // ==========================================
-  // OTROS FILTROS
-  // ==========================================
-
-  formData.append(
-    'tipoOperacion',
-    JSON.stringify(
-      this.filtrosForm.tiposOperacion || []
-    )
-  );
-
-  formData.append(
-    'hecho',
-    JSON.stringify(
-      this.filtrosForm.hechos || []
-    )
-  );
-
-  formData.append(
-    'estrategiaAfecta',
-    JSON.stringify(
-      this.filtrosForm.estrategiasAfecta || []
-    )
-  );
-
-  formData.append(
-    'resultadosGaulas',
-    JSON.stringify(
-      this.filtrosForm.resultadosGaulas || ''
-    )
-  );
-
-  formData.append(
-    'resultadosCoordinados',
-    JSON.stringify(
-      this.filtrosForm.resultadosCoordinados || ''
-    )
-  );
-
-  formData.append(
-    'resultadosConjuntos',
-    JSON.stringify(
-      this.filtrosForm.resultadosConjuntos || ''
-    )
-  );
-
-  // ==========================================
-  // DOCUMENTO
-  // ==========================================
-
-  formData.append(
-    'documento',
-    JSON.stringify(
-      this.documentoInfraSeleccionado || ''
-    )
-  );
-
-  // ==========================================
-  // UI
-  // ==========================================
-
-  this.cargandoDashboard = true;
-
-  this.dashboardStatusMsg =
-    'Generando documento...';
-
-  // ==========================================
-  // REQUEST
-  // ==========================================
-
-  this.http.post(
-
-    this.api_2,
-
-    formData,
-
-    {
-      responseType: 'blob'
-    }
-
-  ).pipe(
-
-    catchError(error => {
-
-      console.error(
-        'Error al descargar documento:',
-        error
-      );
-
-      this.descargadoDocumentoStatusMsg =
-        'No fue posible descargar el documento.';
-
-      this.descargandoDocumento = false;
-
-      return throwError(() => error);
-    })
-
-  ).subscribe({
-
-    // ==========================================
-    // SUCCESS
-    // ==========================================
-
-    next: (blob: Blob) => {
-
-      const url =
-        window.URL.createObjectURL(blob);
-
-      const a =
-        document.createElement('a');
-
-      a.href = url;
-
-      a.download =
-        'reporte_operacional.pptx';
-
-      document.body.appendChild(a);
-
-      a.click();
-
-      a.remove();
-
-      window.URL.revokeObjectURL(url);
-
-      // ==========================================
-      // UI
-      // ==========================================
-
-      this.descargadoDocumentoStatusMsg =
-        'Documento descargado correctamente.';
-
-      this.descargandoDocumento = false;
-    },
-
-
-    // ==========================================
-    // ERROR
-    // ==========================================
-
-    error: () => {
-
-      this.dashboardStatusMsg =
-        'Error descargando documento.';
-
-      this.cargandoDashboard = false;
-    }
-  });
-}
 }

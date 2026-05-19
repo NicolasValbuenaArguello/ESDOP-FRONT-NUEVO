@@ -1,7 +1,7 @@
-﻿import { CommonModule } from '@angular/common';
-import { Component, EventEmitter, OnDestroy, OnInit, Output } from '@angular/core';
+import { CommonModule } from '@angular/common';
+import { AfterViewInit, Component, ElementRef, EventEmitter, OnDestroy, OnInit, Output, ViewChild } from '@angular/core';
 import { NavigationEnd, Router, RouterLink, RouterLinkActive } from '@angular/router';
-import { Subscription, filter } from 'rxjs';
+import { Subscription, filter, take } from 'rxjs';
 import { AuthService } from '../../services/auth';
 
 interface MenuPage {
@@ -17,6 +17,12 @@ interface MenuGroup {
   paginas: MenuPage[];
 }
 
+export interface SidebarLayoutChange {
+  visible: boolean;
+  compacto: boolean;
+  width: number;
+}
+
 @Component({
   selector: 'app-sidebar',
   standalone: true,
@@ -24,20 +30,23 @@ interface MenuGroup {
   templateUrl: './sidebar.component.html',
   styleUrls: ['./sidebar.component.css']
 })
-export class SidebarComponent implements OnInit, OnDestroy {
+export class SidebarComponent implements OnInit, AfterViewInit, OnDestroy {
   @Output() ocultar = new EventEmitter<void>();
+  @Output() layoutChange = new EventEmitter<SidebarLayoutChange>();
+  @ViewChild('sidebarRoot') sidebarRoot?: ElementRef<HTMLElement>;
 
   readonly usuario: string;
   readonly unidad: string;
 
   inicio: MenuPage | null = null;
-
   grupos: MenuGroup[] = [];
 
   urlActual = '';
   menuAbierto = 'Usuarios';
   compacto = false;
+
   private routerEvents?: Subscription;
+  private resizeObserver?: ResizeObserver;
 
   constructor(private auth: AuthService, private router: Router) {
     this.usuario = this.auth.obtenerUsuario() || 'Usuario';
@@ -51,7 +60,6 @@ export class SidebarComponent implements OnInit, OnDestroy {
     // a la estructura visual del menu. Solo aparecen paginas que
     // `AuthService.tienePermisoPagina()` considere accesibles.
     const permisos = this.auth.obtenerPermisos();
-    // HOME
     const homePerm = permisos.find((p) => p.menu?.toUpperCase() === 'HOME' && this.auth.tienePermisoPagina(p));
     this.inicio = homePerm ? {
       nombre: homePerm.nombre,
@@ -59,7 +67,7 @@ export class SidebarComponent implements OnInit, OnDestroy {
       descripcion: homePerm.nombre,
       icono: 'home'
     } : null;
-    // Agrupar por menú y filtrar solo los que puede_ver y no sean HOME
+
     const gruposMap: { [menu: string]: MenuGroup } = {};
     for (const permiso of permisos) {
       if (!this.auth.tienePermisoPagina(permiso)) continue;
@@ -84,19 +92,27 @@ export class SidebarComponent implements OnInit, OnDestroy {
   obtenerIconoMenu(menu: string): 'users' | 'chart' | 'settings' {
     if (menu.toLowerCase().includes('usuario')) return 'users';
     if (menu.toLowerCase().includes('estad')) return 'chart';
+    if (menu.toLowerCase().includes('seguimiento')) return 'chart';
     if (menu.toLowerCase().includes('config')) return 'settings';
     return 'settings';
   }
 
   ngOnInit() {
+    this.refrescarPermisosSidebar();
     this.actualizarMenuActivo(this.router.url);
     this.routerEvents = this.router.events
       .pipe(filter((event): event is NavigationEnd => event instanceof NavigationEnd))
       .subscribe((event) => this.actualizarMenuActivo(event.urlAfterRedirects));
   }
 
+  ngAfterViewInit() {
+    this.emitirLayout(true);
+    this.observarTamanoSidebar();
+  }
+
   ngOnDestroy() {
     this.routerEvents?.unsubscribe();
+    this.resizeObserver?.disconnect();
   }
 
   estaAbierto(menu: string) {
@@ -106,10 +122,12 @@ export class SidebarComponent implements OnInit, OnDestroy {
   toggleMenu(menu: string) {
     this.menuAbierto = this.estaAbierto(menu) ? '' : menu;
     this.compacto = false;
+    this.emitirLayout();
   }
 
   toggleCompacto() {
     this.compacto = !this.compacto;
+    this.emitirLayout();
   }
 
   grupoTieneRutaActiva(grupo: MenuGroup) {
@@ -117,6 +135,11 @@ export class SidebarComponent implements OnInit, OnDestroy {
   }
 
   ocultarSidebar() {
+    this.layoutChange.emit({
+      visible: false,
+      compacto: this.compacto,
+      width: 0
+    });
     this.ocultar.emit();
   }
 
@@ -160,5 +183,58 @@ export class SidebarComponent implements OnInit, OnDestroy {
     if (grupoActivo) {
       this.menuAbierto = grupoActivo.menu;
     }
+  }
+
+  private refrescarPermisosSidebar() {
+    const usuario = this.auth.obtenerUsuario();
+
+    if (!usuario || !this.auth.estaAutenticado()) {
+      return;
+    }
+
+    this.auth.cargarPermisosDesdeFrontend(usuario)
+      .pipe(take(1))
+      .subscribe({
+        next: (permisos) => {
+          if (!permisos.length) {
+            return;
+          }
+
+          this.auth.guardarPermisos(permisos);
+          this.cargarGruposDesdePermisos();
+          this.actualizarMenuActivo(this.router.url);
+          this.emitirLayout();
+        },
+        error: () => {
+          // Si el backend no responde, mantenemos los permisos locales
+          // para no interrumpir la navegación actual.
+        }
+      });
+  }
+
+  private observarTamanoSidebar() {
+    const host = this.sidebarRoot?.nativeElement;
+
+    if (!host || typeof ResizeObserver === 'undefined') {
+      return;
+    }
+
+    this.resizeObserver?.disconnect();
+    this.resizeObserver = new ResizeObserver(() => this.emitirLayout());
+    this.resizeObserver.observe(host);
+  }
+
+  private emitirLayout(force = false) {
+    const width = this.sidebarRoot?.nativeElement.getBoundingClientRect().width || 0;
+
+    if (!force && !width) {
+      return;
+    }
+
+    this.layoutChange.emit({
+      visible: true,
+      compacto: this.compacto,
+      width
+    });
   }
 }

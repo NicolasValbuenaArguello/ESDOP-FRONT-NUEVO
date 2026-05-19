@@ -1,0 +1,91 @@
+<aside class="panel_lateral">
+  <div class="panel_lateral_header">
+    <span class="panel_badge">Panel de control</span>
+    <strong>{{ menu.length }} frentes de seguimiento</strong>
+    <small>Control de secciones, mapa y filtros activos.</small>
+  </div>
+
+  <section class="control_block">
+    <div class="control_head">
+      <span class="panel_badge">Mapa</span>
+      <button type="button" class="control_toggle" [class.control_toggle_active]="mapState.visible" (click)="alternarMapa.emit()">
+        {{ mapState.visible ? 'Ocultar' : 'Mostrar' }}
+      </button>
+    </div>
+    <small class="control_copy">El mapa carga bajo demanda y reajusta el layout cuando cambia el sidebar.</small>
+
+    <div class="modulos_grid">
+      <button type="button" class="modulo_chip" [class.modulo_chip_active]="mapState.expandido" (click)="alternarMapaExpandido.emit()">
+        {{ mapState.expandido ? 'Compactar mapa' : 'Expandir mapa' }}
+      </button>
+      <button type="button" class="modulo_chip" [class.modulo_chip_active]="mapState.modoTactico" (click)="alternarModoTactico.emit()">
+        {{ mapState.modoTactico ? 'Salir modo tactico' : 'Modo tactico' }}
+      </button>
+      <button type="button" class="modulo_chip" [class.modulo_chip_active]="mapState.fullscreen" (click)="alternarMapaFullscreen.emit()">
+        {{ mapState.fullscreen ? 'Salir fullscreen' : 'Fullscreen' }}
+      </button>
+    </div>
+  </section>
+
+  <section class="control_block">
+    <div class="control_head">
+      <span class="panel_badge">Modulos visibles</span>
+    </div>
+
+    <div class="modulos_grid">
+      <button
+        type="button"
+        class="modulo_chip"
+        *ngFor="let modulo of modulos; trackBy: trackByModulo"
+        [class.modulo_chip_active]="modulo.visible"
+        (click)="alternarModulo.emit(modulo.clave)">
+        {{ modulo.etiqueta }}
+      </button>
+    </div>
+  </section>
+
+  <section class="control_block" *ngIf="filtrosActivos.length">
+    <div class="control_head">
+      <span class="panel_badge">Filtros activos</span>
+    </div>
+    <div class="modulos_grid">
+      <span class="filtro_chip" *ngFor="let filtro of filtrosActivos; trackBy: trackByFiltro">{{ filtro }}</span>
+    </div>
+  </section>
+
+  <div class="panel_menu">
+    <section class="menu_grupo" *ngFor="let grupo of menu; trackBy: trackByMenu">
+      <button
+        type="button"
+        class="menu_principal"
+        [class.menu_principal_abierto]="grupo.abierto"
+        (click)="toggleMenu.emit(grupo)">
+        <span class="menu_principal_icono">
+          <i class="bi" [class]="grupo.icono"></i>
+        </span>
+        <span class="menu_principal_copy">
+          <strong>{{ grupo.nombre }}</strong>
+          <small>{{ grupo.submenus.length }} submenu{{ grupo.submenus.length > 1 ? 's' : '' }}</small>
+        </span>
+        <i class="bi bi-chevron-down chevron" [class.chevron_abierto]="grupo.abierto"></i>
+      </button>
+
+      <div class="submenu_lista" *ngIf="grupo.abierto">
+        <button
+          type="button"
+          class="submenu_boton"
+          *ngFor="let submenu of grupo.submenus; trackBy: trackBySubmenu"
+          [class.submenu_boton_activo]="esSubmenuActivo(submenu.id)"
+          (click)="submenuSeleccionado.emit({ menu: grupo, submenu: submenu })">
+          <span class="submenu_icono">
+            <i class="bi" [class]="submenu.icono"></i>
+          </span>
+          <span class="submenu_copy">
+            <strong>{{ submenu.nombre }}</strong>
+            <small>{{ submenu.descripcion }}</small>
+          </span>
+        </button>
+      </div>
+    </section>
+  </div>
+</aside>
