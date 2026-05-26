@@ -43,15 +43,12 @@ export const routes: Routes = [
     canActivate: [AuthGuard],
     data: { nombre: 'Estadisticas', descripcion: 'Visualizacion de estadisticas' }
   },
-  {
-    path: 'seguimiento',
-    loadComponent: () =>
-      import('./pages/seguimiento-operacional/seguimiento-operacional.component').then(
-        (m) => m.SeguimientoOperacionalComponent
-      ),
-    canActivate: [AuthGuard],
-    data: { nombre: 'Seguimiento', descripcion: 'Visualizacion de seguimiento operacional' }
-  },
+ {
+  path: 'seguimiento',
+  loadComponent: () => import('./pages/seguimiento-operacional/seguimiento-operacional').then((m) => m.SeguimientoOperacional),
+  canActivate: [AuthGuard],
+  data: { nombre: 'Seguimiento Operacional', descripcion: 'Panel de seguimiento operacional' }
+ },
   {
     path: 'configuracion',
     loadComponent: () => import('./home/home.component').then((m) => m.HomeComponent),

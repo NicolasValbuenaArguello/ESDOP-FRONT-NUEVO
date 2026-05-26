@@ -1,0 +1,946 @@
+<!-- seguimiento-operacional.html -->
+<div class="dashboard-root">
+    <app-sidebar class="sidebar-premium"></app-sidebar>
+    <div class="dashboard-main">
+        <!-- TOPBAR -->
+        <div class="topbar dashboard-glass">
+            <div class="topbar-group">
+                <button class="btn-filtrar" (click)="abrirFiltro()"><span class="icon">🔎</span> Filtrar</button>
+                <button class="btn-filtrar" (click)="CalcularInformacion()"><span class="icon">⚙️</span> Calcular</button>
+            </div>
+            <div class="topbar-group">
+                <div class="map-toolbar-tactical">
+                    <!-- Grupo 1: Capas del Mapa -->
+                    <div class="toolbar-group dropdown" tabindex="0">
+                        <button class="toolbar-btn dropdown-toggle">
+                            <span class="toolbar-ico">🗺️</span>
+                            Capas del Mapa
+                            <span class="dropdown-arrow"></span>
+                        </button>
+                        <div class="dropdown-menu">
+                            <label class="switch-item">
+                                <input type="checkbox" [checked]="mostrarAisladas" (change)="toggleAisladas()" />
+                                <span class="switch-slider"></span>
+                                <span class="toolbar-ico">🚨</span> Aisladas
+                            </label>
+                            <label class="switch-item">
+                                <input type="checkbox" [checked]="mostrarMovimientos" (change)="toggleMovimientos()" />
+                                <span class="switch-slider"></span>
+                                <span class="toolbar-ico">🛰️</span> Movimientos
+                            </label>
+                            <label class="switch-item">
+                                <input type="checkbox" [checked]="mostrarEfectivos" (change)="toggleEfectivos()" />
+                                <span class="switch-slider"></span>
+                                <span class="toolbar-ico">🧍</span> Efectivos
+                            </label>
+                            <label class="switch-item">
+                                <input type="checkbox" [checked]="mostrarCaboCdt" (change)="toggleCaboCdt()" />
+                                <span class="switch-slider"></span>
+                                <span class="toolbar-ico">🪖</span> Cabo CDT
+                            </label>
+                            <label class="switch-item">
+                                <input type="checkbox" [checked]="mostrarInsitop" (change)="toggleInsitop()" />
+                                <span class="switch-slider"></span>
+                                <span class="toolbar-ico">🛰️</span> INSITOP
+                            </label>
+                            <label class="switch-item">
+                                <input type="checkbox" [checked]="mostrarEventos" (change)="toggleEventos()" />
+                                <span class="switch-slider"></span>
+                                <span class="toolbar-ico">🔴</span>
+                                <span>Eventos</span>
+                            </label>
+                            <label class="switch-item">
+                                <input type="checkbox" [checked]="mostrarUnidades" (change)="toggleUnidades()" />
+                                <span class="switch-slider"></span>
+                                <span class="toolbar-ico">🔵</span>
+                                <span>Unidades</span>
+                            </label>
+                            <label class="switch-item">
+                                <input type="checkbox" [checked]="mostrarLineas" (change)="toggleLineas()" />
+                                <span class="switch-slider"></span>
+                                <span class="toolbar-ico">📏</span>
+                                <span>Relaciones</span>
+                            </label>
+                        </div>
+                    </div>
+                    <!-- Grupo 2: Tablas y Reportes -->
+                    <div class="toolbar-group dropdown" tabindex="0">
+                        <button class="toolbar-btn dropdown-toggle">
+                            <span class="toolbar-ico">📋</span>
+                            Tablas y Reportes
+                            <span class="dropdown-arrow"></span>
+                        </button>
+                        <div class="dropdown-menu">
+                            <label class="switch-item">
+
+    <input
+        type="checkbox"
+        [checked]="mostrarTablaAisladas"
+        (click)="mostrarTablaAisladas = !mostrarTablaAisladas" />
+    <span class="switch-slider"></span>
+    <span class="toolbar-ico">🚨</span>
+    <span>Aisladas</span>
+</label>
+<label class="switch-item">
+    <input
+        type="checkbox"
+        [checked]="mostrarTablaMovimientos"
+        (click)="mostrarTablaMovimientos = !mostrarTablaMovimientos" />
+    <span class="switch-slider"></span>
+    <span class="toolbar-ico">🛰️</span>
+    <span>Movimientos</span>
+</label>
+<label class="switch-item">
+    <input
+        type="checkbox"
+        [checked]="mostrarTablaEfectivos"
+        (click)="mostrarTablaEfectivos = !mostrarTablaEfectivos" />
+    <span class="switch-slider"></span>
+    <span class="toolbar-ico">🧍</span>
+    <span>Efectivos</span>
+</label>
+<label class="switch-item">
+    <input
+        type="checkbox"
+        [checked]="mostrarTablaCabo"
+        (click)="mostrarTablaCabo = !mostrarTablaCabo" />
+    <span class="switch-slider"></span>
+    <span class="toolbar-ico">🪖</span>
+    <span>Cabo CDT</span>
+</label>
+<label class="switch-item">
+    <input
+        type="checkbox"
+        [checked]="mostrarTabla"
+        (click)="mostrarTabla = !mostrarTabla" />
+    <span class="switch-slider"></span>
+    <span class="toolbar-ico">⚠️</span>
+    <span>Alertas</span>
+</label>
+                            <label class="switch-item">
+                                <input type="checkbox" [checked]="mostrarExde" (click)="mostrarExde = !mostrarExde"/>
+                                <span class="switch-slider"></span>
+                                <span class="toolbar-ico">📏</span>
+                                <span>EXDE</span>
+                            </label>
+                            <label class="switch-item">
+    <input
+        type="checkbox"
+        [checked]="mostrarPelotones"
+        (click)="mostrarPelotones = !mostrarPelotones" />
+    <span class="switch-slider"></span>
+    <span class="toolbar-ico">🪖</span>
+    <span>Pelotones</span>
+</label>
+
+
+
+
+
+
+
+                        </div>
+                    </div>
+                    <!-- Grupo 3: Herramientas -->
+                    <div class="toolbar-group dropdown" tabindex="0">
+                        <button class="toolbar-btn dropdown-toggle">
+                            <span class="toolbar-ico">🛠️</span>
+                            Herramientas
+                            <span class="dropdown-arrow"></span>
+                        </button>
+                        <div class="dropdown-menu">
+                            <button class="dropdown-item" (click)="toggleFullscreen()"><span
+                                    class="toolbar-ico">🖥️</span> Fullscreen</button>
+                            <button class="dropdown-item" (click)="exportarMapaKML()"><span
+                                    class="toolbar-ico">🗺️</span> Exportar KML</button>
+                            <button class="dropdown-item" (click)="exportarExcelMapaCompleto()"><span
+                                    class="toolbar-ico">📥</span> Excel</button>
+                            <button class="dropdown-item" (click)="descargarGrafica()"><span
+                                    class="toolbar-ico">🖼️</span> PNG EXDE</button>
+                            <button class="dropdown-item" (click)="descargarGraficaPelotones()"><span
+                                    class="toolbar-ico">🖼️</span> PNG Pelotones</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="dashboard-content">
+            <div class="map-panel">
+
+                <div #leafletMap class="leaflet-map"></div>
+            </div>
+            <div class="panels-stack">
+                <div class="panel-exde dashboard-glass animate-panel panel-premium" #panelExde
+                    (mousedown)="activarVentana($event)" *ngIf="mostrarExde">
+                    <div class="panel-header panel-header-exde" (mousedown)="
+iniciarDragPanel(
+$event,
+panelExde
+)">
+                        <button class="btn-cerrar" (click)="mostrarExde = false">✕</button>
+                        <h2>ESTADÍSTICAS EXDE</h2>
+                    </div>
+                    <div class="totales">
+                        <div class="card-total card-exde">
+                            <span>TOTAL EXDE</span>
+                            <h1>{{ datosExde.total_exde }}</h1>
+                        </div>
+                    </div>
+                    <div class="chart-container chart-glass">
+                        <canvas baseChart [data]="barChartData" [options]="barChartOptions"
+                            [type]="barChartType"></canvas>
+                    </div>
+                    <div class="lista-unidades">
+                        <div class="unidad-card unidad-exde" *ngFor="let item of datosExde.unidades | keyvalue"
+                            (click)="verDetalleUnidad(item.key.toString())">
+                            <h3>{{ item.key }}</h3>
+                            <span>{{ item.value.total }}</span>
+                        </div>
+                    </div>
+                    <!-- RESIZE HANDLES -->
+
+                    <div class="resize-handle resize-right" (mousedown)="iniciarResize($event, 'right', panelExde)">
+                    </div>
+
+                    <div class="resize-handle resize-bottom" (mousedown)="iniciarResize($event, 'bottom', panelExde)">
+                    </div>
+
+                    <div class="resize-handle resize-top" (mousedown)="iniciarResize($event, 'top', panelExde)">
+                    </div>
+
+                    <div class="resize-handle resize-top-right"
+                        (mousedown)="iniciarResize($event, 'top-right', panelExde)">
+                    </div>
+
+                    <div class="resize-handle resize-bottom-right"
+                        (mousedown)="iniciarResize($event, 'bottom-right', panelExde)">
+                    </div>
+                </div>
+                <div class="panel-exde dashboard-glass animate-panel panel-premium" #panelPelotones
+                    (mousedown)="activarVentana($event)" *ngIf="mostrarPelotones">
+                    <div class="panel-header panel-header-pelotones" (mousedown)="
+iniciarDragPanel(
+$event,
+panelPelotones
+)">
+                        <button class="btn-cerrar" (click)="mostrarPelotones = false">✕</button>
+                        <h2>PELOTONES OPERACIONALES</h2>
+                    </div>
+                    <div class="totales-grid">
+                        <div class="card-total card-pelotones"><span>TOTAL</span>
+                            <h1>{{ datosPelotones.total_pelotones }}</h1>
+                        </div>
+                        <div class="card-total card-operaciones"><span>OPERACIONES</span>
+                            <h1>{{ datosPelotones.operaciones }}</h1>
+                        </div>
+                        <div class="card-total card-entrenamiento"><span>ENTRENAMIENTO</span>
+                            <h1>{{ datosPelotones.entrenamiento }}</h1>
+                        </div>
+                        <div class="card-total card-descanso"><span>DESCANSO</span>
+                            <h1>{{ datosPelotones.descanso }}</h1>
+                        </div>
+                    </div>
+                    <!-- <button
+  class="btn-expandir"
+  (click)="abrirGraficaGrande()">
+
+  AMPLIAR
+
+</button> -->
+                    <div class="chart-container chart-glass">
+                        <canvas baseChart [data]="barChartPelotonesData" [options]="barChartOptions"
+                            [type]="barChartType"></canvas>
+                    </div>
+                    <div class="lista-unidades">
+                        <div class="unidad-card unidad-pelotones"
+                            *ngFor="let item of datosPelotones.unidades | keyvalue">
+                            <h3>{{ item.key }}</h3>
+                            <span>TOTAL: {{ item.value.total }}</span>
+                            <small>OPS: {{ item.value.operaciones }}</small>
+                            <small>ENT: {{ item.value.entrenamiento }}</small>
+                            <small>DESC: {{ item.value.descanso }}</small>
+                        </div>
+                    </div>
+                    <!-- RESIZE HANDLES -->
+
+                    <div class="resize-handle resize-right"
+                        (mousedown)="iniciarResize($event, 'right', panelPelotones)">
+                    </div>
+
+                    <div class="resize-handle resize-bottom"
+                        (mousedown)="iniciarResize($event, 'bottom', panelPelotones)">
+                    </div>
+
+                    <div class="resize-handle resize-top" (mousedown)="iniciarResize($event, 'top', panelPelotones)">
+                    </div>
+
+                    <div class="resize-handle resize-top-right"
+                        (mousedown)="iniciarResize($event, 'top-right', panelPelotones)">
+                    </div>
+
+                    <div class="resize-handle resize-bottom-right"
+                        (mousedown)="iniciarResize($event, 'bottom-right', panelPelotones)">
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+<div class="panel-operacional" #panelTabla *ngIf="mostrarTabla">
+
+    <div class="panel-header panel-header-pelotones" (mousedown)="onHeaderMouseDown($event)">
+
+        <button class="btn-cerrar" (click)="mostrarPelotones = false" (mousedown)="$event.stopPropagation()"
+            (click)="cerrarPanelTabla()">✕</button>
+
+        <h2>
+            ALERTAS OPERACIONALES
+        </h2>
+    </div>
+
+    <!-- BODY -->
+
+    <div class="panel-body" *ngIf="!minimizado">
+
+
+        <!-- TABLA -->
+
+        <div class="tabla-container">
+
+            <table class="tabla-operacional">
+
+                <thead>
+
+                    <tr>
+
+                        <th>ALERTA</th>
+                        <th>UNIDAD</th>
+                        <th>DIST</th>
+                        <th>ACCIÓN</th>
+
+                    </tr>
+
+                </thead>
+
+                <tbody>
+
+                    <tr *ngFor="
+              let item of informacionFiltrada()
+            " (click)="irEventoMapa(item)">
+
+                        <td>
+
+                            <span class="badge-alerta" [ngClass]="{
+                  'alto': item.alerta === 'ALTO',
+                  'medio': item.alerta === 'MEDIO',
+                  'bajo': item.alerta === 'BAJO'
+                }">
+
+                                {{ item.alerta }}
+
+                            </span>
+
+                        </td>
+
+                        <td>
+                            {{ item.unidad_operacional }}
+                        </td>
+
+                        <td>
+                            {{
+                            item.distancia_metros
+                            | number:'1.0-0'
+                            }}m
+                        </td>
+
+                        <td>
+                            {{ item.res_accion }}
+                        </td>
+
+                    </tr>
+
+                </tbody>
+
+            </table>
+
+        </div>
+
+    </div>
+    <!-- RESIZE HANDLES -->
+    <div class="resize-handle resize-right"
+        (mousedown)="iniciarResize($event, 'right', panelTabla); $event.stopPropagation()">
+    </div>
+
+    <div class="resize-handle resize-bottom"
+        (mousedown)="iniciarResize($event, 'bottom', panelTabla); $event.stopPropagation()">
+    </div>
+
+    <div class="resize-handle resize-top"
+        (mousedown)="iniciarResize($event, 'top', panelTabla); $event.stopPropagation()">
+    </div>
+
+    <div class="resize-handle resize-top-right"
+        (mousedown)="iniciarResize($event, 'top-right', panelTabla); $event.stopPropagation()">
+    </div>
+
+    <div class="resize-handle resize-bottom-right"
+        (mousedown)="iniciarResize($event, 'bottom-right', panelTabla); $event.stopPropagation()">
+    </div>
+</div>
+
+<div class="panel-operacional" #panelTablaCabo *ngIf="mostrarTablaCabo" (mousedown)="
+iniciarDragPanel(
+$event,
+panelTablaCabo
+)">
+
+
+    <div class="panel-header panel-header-pelotones">
+        <button class="btn-cerrar" (click)="mostrarTablaCabo = false">✕</button>
+        <h2> CABO CDT</h2>
+
+    </div>
+
+    <div class="panel-body">
+
+
+
+        <div class="tabla-container">
+
+            <table class="tabla-operacional">
+
+                <thead>
+
+                    <tr>
+
+                        <th>UNIDAD</th>
+                        <th>ESTADO</th>
+                        <th>MUNICIPIO</th>
+                        <th>COMANDANTE</th>
+
+                    </tr>
+
+                </thead>
+
+                <tbody>
+
+                    <tr *ngFor="
+let item of informacionCaboCdt
+" (click)="irCaboMapa(item)">
+
+                        <td>{{ item[2] }}</td>
+                        <td>{{ item[12] }}</td>
+                        <td>{{ item[5] }}</td>
+                        <td>{{ item[8] }}</td>
+
+                    </tr>
+
+                </tbody>
+
+            </table>
+
+        </div>
+
+    </div>
+    <!-- RESIZE HANDLES -->
+    <div class="resize-handle resize-right"
+        (mousedown)="iniciarResize($event, 'right', panelTablaCabo); $event.stopPropagation()">
+    </div>
+
+    <div class="resize-handle resize-bottom"
+        (mousedown)="iniciarResize($event, 'bottom', panelTablaCabo); $event.stopPropagation()">
+    </div>
+
+    <div class="resize-handle resize-top"
+        (mousedown)="iniciarResize($event, 'top', panelTablaCabo); $event.stopPropagation()">
+    </div>
+
+    <div class="resize-handle resize-top-right"
+        (mousedown)="iniciarResize($event, 'top-right', panelTablaCabo); $event.stopPropagation()">
+    </div>
+
+    <div class="resize-handle resize-bottom-right"
+        (mousedown)="iniciarResize($event, 'bottom-right', panelTablaCabo); $event.stopPropagation()">
+    </div>
+</div>
+
+<div class="panel-operacional" *ngIf="mostrarTablaEfectivos" #panelTablaEfectivos (mousedown)="
+iniciarDragPanel(
+$event,
+panelTablaEfectivos
+)">
+
+    <div class="panel-header panel-header-pelotones">
+        <button class="btn-cerrar" (click)="mostrarTablaEfectivos = false">✕</button>
+
+        <h2>
+            EFECTIVOS DISMINUIDOS
+        </h2>
+
+
+
+    </div>
+
+    <div class="panel-body">
+
+
+        <div class="tabla-container">
+
+            <table class="tabla-operacional">
+
+                <thead>
+
+                    <tr>
+
+                        <th>UNIDAD</th>
+                        <th>ESTADO</th>
+                        <th>EFECTIVOS</th>
+                        <th>COMANDANTE</th>
+
+                    </tr>
+
+                </thead>
+
+                <tbody>
+
+                    <tr *ngFor="
+let item of informacionEfectivos
+" (click)="irEfectivoMapa(item)">
+
+                        <td>{{ item[2] }}</td>
+
+                        <td>{{ item[13] }}</td>
+
+                        <td>{{ item[10] }}</td>
+
+                        <td>{{ item[7] }}</td>
+
+                    </tr>
+
+                </tbody>
+
+            </table>
+
+        </div>
+
+    </div>
+    <!-- RESIZE HANDLES -->
+    <div class="resize-handle resize-right"
+        (mousedown)="iniciarResize($event, 'right', panelTablaEfectivos); $event.stopPropagation()">
+    </div>
+
+    <div class="resize-handle resize-bottom"
+        (mousedown)="iniciarResize($event, 'bottom', panelTablaEfectivos); $event.stopPropagation()">
+    </div>
+
+    <div class="resize-handle resize-top"
+        (mousedown)="iniciarResize($event, 'top', panelTablaEfectivos); $event.stopPropagation()">
+    </div>
+
+    <div class="resize-handle resize-top-right"
+        (mousedown)="iniciarResize($event, 'top-right', panelTablaEfectivos); $event.stopPropagation()">
+    </div>
+
+    <div class="resize-handle resize-bottom-right"
+        (mousedown)="iniciarResize($event, 'bottom-right', panelTablaEfectivos); $event.stopPropagation()">
+    </div>
+</div>
+<div class="panel-operacional" *ngIf="mostrarTablaAisladas" #panelTablaAisladas (mousedown)="
+iniciarDragPanel(
+$event,
+panelTablaAisladas
+)">
+
+    <div class="panel-header panel-header-pelotones">
+        <button class="btn-cerrar" (click)="mostrarTablaAisladas = false">✕</button>
+
+
+        <h2>
+            UNIDADES AISLADAS
+        </h2>
+
+
+    </div>
+
+    <div class="panel-body">
+
+        <div class="tabla-container">
+
+            <table class="tabla-operacional">
+
+                <thead>
+
+                    <tr>
+
+                        <th>UNIDAD</th>
+                        <th>ESTADO</th>
+                        <th>DISTANCIA</th>
+                        <th>VECINO</th>
+
+                    </tr>
+
+                </thead>
+
+                <tbody>
+
+                    <tr *ngFor="
+          let item of
+          informacionAisladas
+          " (click)="
+          irAisladaMapa(item)
+          ">
+
+                        <td>{{ item[2] }}</td>
+
+                        <td>{{ item[11] }}</td>
+
+                        <td>{{ item[8] }}</td>
+
+                        <td>{{ item[15] }}</td>
+
+                    </tr>
+
+                </tbody>
+
+            </table>
+
+        </div>
+
+    </div>
+    <!-- RESIZE HANDLES -->
+    <div class="resize-handle resize-right"
+        (mousedown)="iniciarResize($event, 'right', panelTablaAisladas); $event.stopPropagation()">
+    </div>
+
+    <div class="resize-handle resize-bottom"
+        (mousedown)="iniciarResize($event, 'bottom', panelTablaAisladas); $event.stopPropagation()">
+    </div>
+
+    <div class="resize-handle resize-top"
+        (mousedown)="iniciarResize($event, 'top', panelTablaAisladas); $event.stopPropagation()">
+    </div>
+
+    <div class="resize-handle resize-top-right"
+        (mousedown)="iniciarResize($event, 'top-right', panelTablaAisladas); $event.stopPropagation()">
+    </div>
+
+    <div class="resize-handle resize-bottom-right"
+        (mousedown)="iniciarResize($event, 'bottom-right', panelTablaAisladas); $event.stopPropagation()">
+    </div>
+</div>
+<div class="panel-operacional" *ngIf="mostrarTablaMovimientos" #panelTablaMovimientos (mousedown)="
+iniciarDragPanel(
+$event,
+panelTablaMovimientos
+)">
+
+    <div class="panel-header panel-header-pelotones">
+        <button class="btn-cerrar" (click)="mostrarTablaMovimientos = false">✕</button>
+
+
+        <h2>
+            MOVIMIENTOS
+        </h2>
+
+
+
+    </div>
+
+    <div class="panel-body">
+
+        <div class="tabla-container">
+
+            <table class="tabla-operacional">
+
+                <thead>
+
+                    <tr>
+
+                        <th>UNIDAD</th>
+
+                        <th>COMP</th>
+
+                        <th>PELOTÓN</th>
+
+                        <th>MOV</th>
+
+                        <th>DISTANCIA</th>
+
+                    </tr>
+
+                </thead>
+
+                <tbody>
+
+                    <tr *ngFor="
+          let item of
+          informacionMovimientos
+          " (click)="
+          irMovimientoMapa(item)">
+
+                        <td>
+                            {{ item.unidad }}
+                        </td>
+
+                        <td>
+                            {{ item.compania }}
+                        </td>
+
+                        <td>
+                            {{ item.peloton }}
+                        </td>
+
+                        <td>
+
+                            <span class="badge-alerta" [ngClass]="{
+
+                'alto':
+                item.movimiento === 1,
+
+                'medio':
+                item.movimiento_minimo === 1,
+
+                'bajo':
+                item.movimiento === 0 &&
+                item.movimiento_minimo === 0
+
+              }">
+
+                                {{
+
+                                item.movimiento === 1
+                                ? 'ALTO'
+
+                                :
+
+                                item.movimiento_minimo === 1
+                                ? 'MIN'
+
+                                :
+
+                                'SIN'
+
+                                }}
+
+                            </span>
+
+                        </td>
+
+                        <td>
+
+                            {{
+                            item.distancia_metros
+                            | number:'1.0-0'
+                            }} m
+
+                        </td>
+
+                    </tr>
+
+                </tbody>
+
+            </table>
+
+        </div>
+
+    </div>
+    <!-- RESIZE HANDLES -->
+    <div class="resize-handle resize-right"
+        (mousedown)="iniciarResize($event, 'right', panelTablaMovimientos); $event.stopPropagation()">
+    </div>
+
+    <div class="resize-handle resize-bottom"
+        (mousedown)="iniciarResize($event, 'bottom', panelTablaMovimientos); $event.stopPropagation()">
+    </div>
+
+    <div class="resize-handle resize-top"
+        (mousedown)="iniciarResize($event, 'top', panelTablaMovimientos); $event.stopPropagation()">
+    </div>
+
+    <div class="resize-handle resize-top-right"
+        (mousedown)="iniciarResize($event, 'top-right', panelTablaMovimientos); $event.stopPropagation()">
+    </div>
+
+    <div class="resize-handle resize-bottom-right"
+        (mousedown)="iniciarResize($event, 'bottom-right', panelTablaMovimientos); $event.stopPropagation()">
+    </div>
+</div>
+
+
+<div class="modal-backdrop dashboard-modal-backdrop dashboard-modal-fullscreen" *ngIf="mostrarFiltro">
+    <div class="dashboard-modal-tactical-grid glass-modal animate-modal modal-premium">
+        <div class="dashboard-modal-header filtro-modal-header dashboard-modal-header-full">
+            <h2 class="modal-title-ux">FILTRAR INFORMACIÓN</h2>
+            <button class="btn-cerrar filtro-btn-cerrar" (click)="cerrarFiltro()">✕</button>
+        </div>
+        <div class="dashboard-modal-tactical-content">
+            <!-- PANEL LATERAL SUBREGIONES -->
+            <aside class="dashboard-modal-sidebar">
+                <h3 class="dashboard-subregiones-title">Subregiones</h3>
+                <div class="dashboard-subregiones-scroll">
+                    <div *ngFor="let sub of subregiones" class="dashboard-subregion-list-item">
+                        <button class="dashboard-subregion-btn" [class.selected]="subregionSeleccionada === sub" (click)="seleccionarSubregion(sub)">{{ sub.nombre }}</button>
+                    </div>
+                </div>
+            </aside>
+            <!-- GRID PRINCIPAL FILTROS Y DEPTOS -->
+            <section class="dashboard-modal-main">
+                <div class="dashboard-modal-grid-3col">
+                    <!-- Columna 1: Fecha y Estructura -->
+                    <div class="dashboard-modal-main-col">
+                        <div class="dashboard-card dashboard-card-wide">
+                            <div class="dashboard-section">
+                                <label class="filter-title filtro-title-premium">Fecha Operacional</label>
+                                <input type="date" [(ngModel)]="fechaSeleccionada" name="fechaSeleccionada" class="input-fecha filtro-input-fecha" />
+                            </div>
+                        </div>
+                        <div class="dashboard-card dashboard-card-wide">
+                            <div class="dashboard-card-header">ESTRUCTURA OPERACIONAL</div>
+                            <div class="dashboard-section">
+                                <label class="filter-title filtro-title-premium">División FT</label>
+                                <div class="dashboard-select-wrapper">
+                                    <select class="dashboard-select-premium" name="subFiltroDivisionesFtModal" [(ngModel)]="filtrosForm.subFiltroDivisionesFt" (ngModelChange)="onSubFiltroDivisionFtChange()" [disabled]="!opcionesSubFiltros.divisiones_ft.length">
+                                        <option value="">Todas</option>
+                                        <option *ngFor="let division of opcionesSubFiltros.divisiones_ft" [value]="division">{{ division }}</option>
+                                    </select>
+                                    <span class="dashboard-select-icon">▼</span>
+                                </div>
+                            </div>
+                            <div class="dashboard-section">
+                                <label class="filter-title filtro-title-premium">División</label>
+                                <div class="dashboard-select-wrapper">
+                                    <select class="dashboard-select-premium" name="subFiltroDivisionesModal" [(ngModel)]="filtrosForm.subFiltroDivisiones" (ngModelChange)="onSubFiltroDivisionChange()" [disabled]="!filtrosForm.subFiltroDivisionesFt || !opcionesSubFiltros.divisiones.length">
+                                        <option value="">Todas</option>
+                                        <option *ngFor="let division of opcionesSubFiltros.divisiones" [value]="division">{{ division }}</option>
+                                    </select>
+                                    <span class="dashboard-select-icon">▼</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- Columna 2: Brigadas y Batallones -->
+                    <div class="dashboard-modal-main-col">
+                        <div class="dashboard-card dashboard-card-wide">
+                            <div class="dashboard-section">
+                                <label class="filter-title filtro-title-premium">Brigadas</label>
+                                <select class="dashboard-multiselect-premium dashboard-multiselect-large" name="subFiltroBrigadasModal" [(ngModel)]="filtrosForm.subFiltroBrigadas" (ngModelChange)="onSubFiltroBrigadasChange()" multiple size="8" [disabled]="!filtrosForm.subFiltroDivisiones || !opcionesSubFiltros.brigadas.length">
+                                    <option *ngFor="let brigada of opcionesSubFiltros.brigadas" [value]="brigada">{{ brigada }}</option>
+                                </select>
+                            </div>
+                            <div class="dashboard-section">
+                                <label class="filter-title filtro-title-premium">Batallones</label>
+                                <select class="dashboard-multiselect-premium dashboard-multiselect-large" name="subFiltroBatallonesModal" [(ngModel)]="filtrosForm.subFiltroBatallones" (ngModelChange)="onSubFiltroBatallonesChange()" multiple size="10" [disabled]="!filtrosForm.subFiltroBrigadas.length || !opcionesSubFiltros.batallones.length">
+                                    <option *ngFor="let batallon of opcionesSubFiltros.batallones" [value]="batallon">{{ batallon }}</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- Columna 3: Departamentos y Municipios -->
+                    <div class="dashboard-modal-main-col">
+                        <div class="dashboard-card dashboard-card-wide">
+                            <div class="dashboard-section">
+                                <label class="filter-title filtro-title-premium">Departamento</label>
+                                <select class="dashboard-multiselect-premium dashboard-multiselect-large" name="subFiltroDepartamentoModal" [(ngModel)]="filtrosForm.subFiltroDepartamento" (ngModelChange)="onSubFiltroDepartamentoChange()" multiple size="8" [disabled]="!opcionesSubFiltros.departamentos.length">
+                                    <option *ngFor="let dpto of opcionesSubFiltros.departamentos" [value]="dpto">{{ dpto }}</option>
+                                </select>
+                                <small class="dashboard-subfilter-hint">Puedes seleccionar uno o varios departamentos.</small>
+                            </div>
+                            <div class="dashboard-section">
+                                <label class="filter-title filtro-title-premium">Municipio</label>
+                                <select class="dashboard-multiselect-premium dashboard-multiselect-large" name="subFiltroMunicipioModal" [(ngModel)]="filtrosForm.subFiltroMunicipio" (ngModelChange)="onSubFiltroMunicipioChange()" multiple size="10" [disabled]="!filtrosForm.subFiltroDepartamento.length || !opcionesSubFiltros.municipios.length">
+                                    <option *ngFor="let mpio of opcionesSubFiltros.municipios" [value]="mpio">{{ mpio }}</option>
+                                </select>
+                                <small class="dashboard-subfilter-hint">Selecciona primero un departamento para habilitar sus municipios.</small>
+                            </div>
+                        </div>
+                        <!-- DEPARTAMENTOS Y MUNICIPIOS DE SUBREGIÓN -->
+                        <div class="dashboard-card dashboard-card-wide dashboard-card-deptos" *ngIf="subregionSeleccionada">
+                            <div class="dashboard-card-header">Departamentos</div>
+                            <div class="dashboard-subregiones-counts">
+                                <span class="dashboard-count-label">Departamentos:</span>
+                                <span class="dashboard-count-value">{{ subregionSeleccionada.departamentos.length }}</span>
+                                <span class="dashboard-count-label">Municipios:</span>
+                                <span class="dashboard-count-value">{{ subregionSeleccionada.departamentos.reduce((acc, d) => acc + (d.municipios?.length || 0), 0) }}</span>
+                            </div>
+                            <div class="dashboard-deptos-list-scroll">
+                                <div *ngFor="let dep of subregionSeleccionada.departamentos" class="dashboard-departamento-list-item">
+                                    <button class="dashboard-depto-btn" [class.selected]="departamentoSeleccionado === dep" (click)="seleccionarDepartamento(dep)">{{ dep.nombre }}</button>
+                                </div>
+                            </div>
+                            <div *ngIf="departamentoSeleccionado" class="dashboard-mpios-list-block">
+                                <h3 class="dashboard-mpios-title">Municipios</h3>
+                                <ul class="dashboard-mpios-list-scroll">
+                                    <li *ngFor="let mpio of departamentoSeleccionado.municipios">{{ mpio }}</li>
+                                </ul>
+                            </div>
+                        </div>
+                        <div *ngIf="!subregionSeleccionada" class="dashboard-subregiones-empty-state">
+                            <p>Selecciona una subregión para ver sus departamentos y municipios.</p>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </div>
+        <div class="dashboard-modal-footer dashboard-modal-footer-full">
+            <button class="dashboard-btn-enviar" (click)="filtrarInformacion()">
+                <span class="dashboard-btn-icon">⚙️</span>
+                Procesar Filtros
+            </button>
+        </div>
+    </div>
+</div>
+<!-- ====================================== -->
+<!-- LOADER -->
+<!-- ====================================== -->
+<div
+  class="loading-overlay"
+  *ngIf="cargandoInformacion">
+
+  <div class="loading-card">
+
+    <div class="loader-ring"></div>
+
+    <h3>
+
+      Procesando información...
+
+    </h3>
+
+    <p>
+
+      Consultando datos operacionales
+
+    </p>
+
+  </div>
+
+</div>
+<!-- <div class="ventana-grafica" *ngIf="mostrarGraficaGrande">
+
+    <div class="grafica-modal">
+
+        <div class="header-grafica">
+
+            <h2>GRÁFICA PELOTONES</h2>
+
+            <button (click)="cerrarGraficaGrande()">
+
+                ✕
+
+            </button>
+
+        </div>
+
+        <div class="grafica-grande-container">
+
+            <canvas baseChart [data]="barChartPelotonesData" [options]="barChartOptions" [type]="barChartType">
+
+            </canvas>
+
+        </div>
+
+    </div>
+
+</div> -->

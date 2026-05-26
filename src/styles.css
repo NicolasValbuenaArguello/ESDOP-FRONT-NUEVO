@@ -426,3 +426,301 @@ app-estadisticas .coordinate-modal-actions {
 	}
 }
 
+.popup-mini {
+
+  min-width: 240px;
+
+  max-width: 290px;
+
+  border-radius: 14px;
+
+  overflow: hidden;
+
+  background:
+  linear-gradient(
+    145deg,
+    #000000,
+    #2a0000
+  );
+
+  color: white;
+
+  border:
+  1px solid rgba(255,255,255,0.06);
+
+  box-shadow:
+  0 8px 22px rgba(0,0,0,0.4);
+
+  font-family: Arial, sans-serif;
+
+}
+
+/* ====================================== */
+/* HEADER */
+/* ====================================== */
+
+.popup-mini-header {
+
+  padding: 10px 14px;
+
+  background:
+  rgba(255,0,0,0.12);
+
+  font-size: 14px;
+
+  font-weight: 800;
+
+  display: flex;
+
+  flex-direction: column;
+
+  gap: 2px;
+
+}
+
+.popup-mini-header span {
+
+  font-size: 11px;
+
+  font-weight: 500;
+
+  color: #ffbdbd;
+
+}
+
+/* ====================================== */
+/* GRID */
+/* ====================================== */
+
+.popup-mini-grid {
+
+  display: grid;
+
+  grid-template-columns:
+  repeat(2, 1fr);
+
+  gap: 8px;
+
+  padding: 10px;
+
+}
+
+/* ====================================== */
+/* ITEM */
+/* ====================================== */
+
+.mini-item {
+
+  display: flex;
+
+  flex-direction: column;
+
+  padding: 7px 8px;
+
+  border-radius: 10px;
+
+  background:
+  rgba(255,255,255,0.04);
+
+}
+
+/* FULL */
+
+.full {
+
+  grid-column: 1 / -1;
+
+}
+
+/* ====================================== */
+/* LABEL */
+/* ====================================== */
+
+.mini-item small {
+
+  font-size: 9px;
+
+  color: #ff9d9d;
+
+  font-weight: 700;
+
+  letter-spacing: .6px;
+
+  margin-bottom: 2px;
+
+}
+
+/* ====================================== */
+/* VALUE */
+/* ====================================== */
+
+.mini-item strong {
+
+  font-size: 12px;
+
+  color: white;
+
+  font-weight: 600;
+
+  line-height: 1.2;
+
+  word-break: break-word;
+
+}
+.tags-operacionales {
+
+  display: flex;
+
+  flex-wrap: wrap;
+
+  gap: 6px;
+
+  margin-top: 4px;
+
+}
+
+/* ====================================== */
+/* TAG BASE */
+/* ====================================== */
+
+.tag-op {
+
+  padding: 4px 8px;
+
+  border-radius: 999px;
+
+  font-size: 10px;
+
+  font-weight: 700;
+
+  line-height: 1.2;
+
+  background:
+  rgba(255,255,255,0.08);
+
+  color: white;
+
+  border:
+  1px solid rgba(255,255,255,0.05);
+
+  white-space: nowrap;
+
+}
+
+/* ====================================== */
+/* COLORES */
+/* ====================================== */
+
+.tag-op.danger {
+
+  background:
+  rgba(255,0,0,0.18);
+
+  color: #ff9c9c;
+
+}
+
+.tag-op.blue {
+
+  background:
+  rgba(0,140,255,0.18);
+
+  color: #9ed2ff;
+
+}
+
+.tag-op.orange {
+
+  background:
+  rgba(255,145,0,0.18);
+
+  color: #ffd28b;
+
+}
+
+.tag-op.green {
+
+  background:
+  rgba(0,255,140,0.15);
+
+  color: #9fffd2;
+
+}
+
+.tag-op.purple {
+
+  background:
+  rgba(180,0,255,0.18);
+
+  color: #e2a6ff;
+
+}
+
+.tag-op.gray {
+
+  background:
+  rgba(255,255,255,0.08);
+
+  color: #d5d5d5;
+
+}
+.warning-header {
+
+  background:
+  linear-gradient(
+    90deg,
+    rgba(255,145,0,0.28),
+    rgba(255,255,255,0.02)
+  ) !important;
+
+}
+
+/* ====================================== */
+/* TEXTO ALERTA */
+/* ====================================== */
+
+.danger-text {
+
+  color: #ffb300 !important;
+
+  font-weight: 800;
+
+  text-shadow:
+  0 0 10px rgba(255,179,0,0.35);
+
+}
+.primary-header {
+
+  background:
+  linear-gradient(
+    90deg,
+    rgba(0,140,255,0.22),
+    rgba(255,255,255,0.02)
+  ) !important;
+
+}
+
+/* ====================================== */
+/* TEXTO EFECTIVOS */
+/* ====================================== */
+
+.success-text {
+
+  color: #00e676 !important;
+
+  font-weight: 800;
+
+  text-shadow:
+  0 0 10px rgba(0,230,118,0.28);
+
+}
+.previous-header {
+
+  background:
+  linear-gradient(
+    90deg,
+    rgba(255,145,0,0.28),
+    rgba(255,255,255,0.02)
+  ) !important;
+
+}

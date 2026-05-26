@@ -15,6 +15,7 @@ export const environment = {
       dashboard: '/dashboard',
       generar_pptx: '/generar_pptx',
       seguimiento_operacional: '/seguimiento_operacional',
+      seguimiento_operacional_calcular: '/seguimiento_operacional_calcular',
     }
   }
 };

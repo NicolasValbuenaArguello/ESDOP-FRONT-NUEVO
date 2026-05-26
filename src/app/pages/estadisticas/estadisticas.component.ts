@@ -115,13 +115,19 @@ export class EstadisticasComponent implements AfterViewInit, OnDestroy {
   /**
  * Devuelve documento Selecionado de infraestructura.
  */
-  getTextoDocumentoInfraSeleccionado(): string {
-    if (!this.documentoInfraSeleccionado || typeof this.documentoInfraSeleccionado !== 'object') return '';
-    const documentoId = this.documentoInfraSeleccionado.id;
-    if (!documentoId) return '';
-    const documento = this.documentosInfraestructura.find(d => d.id === documentoId);
-    return documento ? documento.texto : '';
+getTextodocumentoSeleccionado(): string {
+
+  if (
+    !this.documentoSeleccionado ||
+    typeof this.documentoSeleccionado !== 'object'
+  ) {
+    return '';
   }
+
+  return this.documentoSeleccionado.texto ?? '';
+
+}
+
 
 
   // El método ngOnInit debe estar solo una vez. Integramos la carga de operaciones en el ngOnInit principal.
@@ -166,6 +172,11 @@ export class EstadisticasComponent implements AfterViewInit, OnDestroy {
     { id: 'infraestructuraDirop', valor: 'infraestructuraDirop', texto: 'Infraestructura Diseño DIROP' },
     { id: 'infraestructuraEjc', valor: 'infraestructuraEjc', texto: 'Infraestructura Diseño EJC' },
   ];
+  documentosNarcotrafico = [
+    { id: 'pmtd', valor: 'pmtd', texto: 'Narcotráfico PMTD' },
+    { id: 'narcotraficoDirop', valor: 'narcotraficoDirop', texto: 'Narcotráfico Diseño DIROP' },
+    { id: 'narcotraficoEjc', valor: 'narcotraficoEjc', texto: 'Narcotráfico Diseño EJC' },
+  ];
 
 
   apoyoSeleccionado: {
@@ -173,7 +184,7 @@ export class EstadisticasComponent implements AfterViewInit, OnDestroy {
     valor: string;
     texto: string;
   } | null = null;
-  documentoInfraSeleccionado: {
+  documentoSeleccionado: {
     id: string;
     valor: string;
     texto: string;
@@ -272,6 +283,7 @@ export class EstadisticasComponent implements AfterViewInit, OnDestroy {
   mostrarDocumentosModal = false;
   mostrarSelectorUnidadesModal = false;
   mostrarSelectordocumentosInfraestructuraModal = false;
+  mostrarSelectorNarcotraficoModal = false;
   mostrarSelectorLugarModal = false;
   mostrarSelectorEnemigoModal = false;
   exportingMapImage = false;
@@ -458,7 +470,7 @@ export class EstadisticasComponent implements AfterViewInit, OnDestroy {
     subFiltroEnemigo: [] as string[],
     subFiltroEnemigoEstructura: [] as string[],
     subFiltroOperaciones: '',
-    subFiltroEstado: '',
+    opcionesSpoa: 'RESULTADOS CON SPOA',
     documentosTipo: '',
     documentosOrigen: '',
     documentosClasificacion: '',
@@ -543,7 +555,7 @@ export class EstadisticasComponent implements AfterViewInit, OnDestroy {
     municipios: [] as string[],
     enemigos: [] as string[],
     enemigosEstructura: [] as string[],
-    estados: ['Activo', 'En revision', 'Pendiente', 'Cerrado'],
+    spoa: ['RESULTADOS CON SPOA', 'RESULTADOS SIN SPOA'],
     operaciones: [] as string[],
     tiposOperacion: [] as string[],
     hechos: [] as string[],
@@ -559,8 +571,6 @@ export class EstadisticasComponent implements AfterViewInit, OnDestroy {
     origenes: ['Interno', 'Externo', 'Territorial', 'Judicial'],
     clasificaciones: ['Reservado', 'Publico', 'Confidencial', 'Uso interno']
   };
-
-
 
   // --- NUEVO: Inicialización de datos desde backend ---
   ngOnInit() {
@@ -1220,6 +1230,12 @@ export class EstadisticasComponent implements AfterViewInit, OnDestroy {
   abrirInfraestructuraModal() {
     this.mostrarSelectordocumentosInfraestructuraModal = true;
   }
+  abrirNarcotraficoModal() {
+    this.mostrarSelectorNarcotraficoModal = true;
+  }
+  cerrarNarcotraficoModal() {
+    this.mostrarSelectorNarcotraficoModal = false;
+  }
   cerrarInfraestructuraModal() {
     this.mostrarSelectordocumentosInfraestructuraModal = false;
   }
@@ -1288,7 +1304,7 @@ export class EstadisticasComponent implements AfterViewInit, OnDestroy {
     this.filtrosForm.subFiltroMunicipio = [];
     this.filtrosForm.subFiltroEnemigo = [];
     this.filtrosForm.subFiltroEnemigoEstructura = [];
-    this.filtrosForm.subFiltroEstado = '';
+    this.filtrosForm.opcionesSpoa = 'RESULTADOS CON SPOA';
     // Limpiar subregión y departamento seleccionado
     this.subregionSeleccionada = null;
     this.departamentoSeleccionado = null;
@@ -1308,7 +1324,7 @@ export class EstadisticasComponent implements AfterViewInit, OnDestroy {
   limpiarDocumentos() {
 
 
-    this.documentoInfraSeleccionado = null;
+    this.documentoSeleccionado = null;
 
 
   }
@@ -1753,20 +1769,20 @@ export class EstadisticasComponent implements AfterViewInit, OnDestroy {
   getResumenDocumentosAplicados(): string[] {
     const resumen = [
 
-      ...this.getDocSeleccionadosInfraestrucura().map(Documento => ` ${Documento.texto}`),
+      ...this.getDocSeleccionados().map(Documento => ` ${Documento.texto}`),
 
     ];
 
 
     return resumen;
   }
-  getDocSeleccionadosInfraestrucura() {
+  getDocSeleccionados() {
 
-    if (!this.documentoInfraSeleccionado) {
+    if (!this.documentoSeleccionado) {
       return [];
     }
 
-    return [this.documentoInfraSeleccionado];
+    return [this.documentoSeleccionado];
   }
 
   getResumenSubFiltrosAplicados(): string[] {
@@ -1783,8 +1799,8 @@ export class EstadisticasComponent implements AfterViewInit, OnDestroy {
       resumen.unshift(`Subregión: ${this.subregionSeleccionada.nombre}`);
     }
 
-    if (this.filtrosForm.subFiltroEstado) {
-      resumen.push(`Estado: ${this.filtrosForm.subFiltroEstado}`);
+    if (this.filtrosForm.opcionesSpoa) {
+      resumen.push(`spoa: ${this.filtrosForm.opcionesSpoa}`);
     }
 
     return resumen;
@@ -2794,8 +2810,7 @@ export class EstadisticasComponent implements AfterViewInit, OnDestroy {
 
   get puedeDescargarDocumento() {
     return this.puedeEditarEstadisticasCrud
-      && this.descargaDisponible
-      && !!this.documentoInfraSeleccionado
+      && !!this.documentoSeleccionado
       && !this.hayPeticionActiva;
   }
 
@@ -3229,7 +3244,7 @@ export class EstadisticasComponent implements AfterViewInit, OnDestroy {
       return;
     }
 
-    if (!this.descargaDisponible) {
+    if (!this.documentoSeleccionado) {
       this.downloadRequestState = 'error';
       this.descargadoDocumentoStatusMsg =
         'Primero consulta la información general para habilitar la descarga.';
@@ -3252,7 +3267,7 @@ export class EstadisticasComponent implements AfterViewInit, OnDestroy {
     if (!rangoFechas) {
       return;
     }
-    if (!this.documentoInfraSeleccionado) {
+    if (!this.documentoSeleccionado) {
       this.downloadRequestState = 'error';
       this.descargadoDocumentoStatusMsg =
         'Selecciona un documento antes de iniciar la descarga.';
@@ -3427,6 +3442,13 @@ export class EstadisticasComponent implements AfterViewInit, OnDestroy {
       )
     );
 
+    formData.append(
+      'opcionesSpoa',
+      JSON.stringify(
+        this.filtrosForm.opcionesSpoa || ''
+      )
+    );
+
     // ==========================================
     // DOCUMENTO
     // ==========================================
@@ -3434,7 +3456,7 @@ export class EstadisticasComponent implements AfterViewInit, OnDestroy {
     formData.append(
       'documento',
       JSON.stringify(
-        this.documentoInfraSeleccionado || ''
+        this.documentoSeleccionado.valor || ''
       )
     );
 
@@ -3460,7 +3482,8 @@ export class EstadisticasComponent implements AfterViewInit, OnDestroy {
       formData,
 
       {
-        responseType: 'blob'
+          responseType: 'blob',
+  observe: 'response'
       }
 
     ).pipe(
@@ -3493,36 +3516,58 @@ export class EstadisticasComponent implements AfterViewInit, OnDestroy {
       // SUCCESS
       // ==========================================
 
-      next: (blob: Blob) => {
+next: (response: any) => {
 
-        const url =
-          window.URL.createObjectURL(blob);
+  const blob = response.body;
 
-        const a =
-          document.createElement('a');
+  const url =
+    window.URL.createObjectURL(blob);
 
-        a.href = url;
+  const a =
+    document.createElement('a');
 
-        a.download =
-          'reporte_operacional.pptx';
+  a.href = url;
 
-        document.body.appendChild(a);
+  // ==========================================
+  // NOMBRE DESDE FASTAPI
+  // ==========================================
 
-        a.click();
+  const contentDisposition =
+    response.headers.get('Content-Disposition');
 
-        a.remove();
+  let nombreArchivo = 'documento.pptx';
 
-        window.URL.revokeObjectURL(url);
+  if (contentDisposition) {
 
-        // ==========================================
-        // UI
-        // ==========================================
+    const match =
+      contentDisposition.match(/filename="(.+)"/);
 
-        this.descargadoDocumentoStatusMsg =
-          'Documento descargado correctamente.';
+    if (match && match[1]) {
 
-        this.setActionState('download', 'success');
-      },
+      nombreArchivo = match[1];
+
+    }
+  }
+
+  // ==========================================
+  // USAR NOMBRE DEL BACKEND
+  // ==========================================
+
+  a.download = nombreArchivo;
+
+  document.body.appendChild(a);
+
+  a.click();
+
+  a.remove();
+
+  window.URL.revokeObjectURL(url);
+
+  this.descargadoDocumentoStatusMsg =
+    'Documento descargado correctamente.';
+
+  this.setActionState('download', 'success');
+},
 
 
       // ==========================================

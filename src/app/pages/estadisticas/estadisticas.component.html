@@ -1,44 +1,4 @@
-<!-- Modal de convenciones -->
-<div class="popup-modal-backdrop" *ngIf="mostrarConvencionesModal" (click)="mostrarConvencionesModal = false">
-  <div #convencionesModalRef class="popup-modal convenciones-modal" (click)="$event.stopPropagation()">
-    <div class="popup-modal-head convenciones-modal-head">
-      <div>
-        <span class="card-kicker">Mapa</span>
-        <h2>Convenciones</h2>
-      </div>
-      <button class="popup-close" type="button" aria-label="Cerrar convenciones"
-        (click)="mostrarConvencionesModal = false">&times;</button>
-    </div>
 
-    <div class="convenciones-modal-summary">
-      <span class="convenciones-summary-label">Tipo de mapa</span>
-      <strong>{{ tipoMapaActivo | titlecase }}</strong>
-    </div>
-
-    <div class="convenciones-list" *ngIf="mapLegendItems.length; else convencionesVacias">
-      <div class="convenciones-item" *ngFor="let item of mapLegendItems">
-        <span class="convencion-swatch" [class.convencion-swatch-line]="item.kind === 'line'"
-          [style.--convencion-color]="item.color"></span>
-        <span class="convencion-label">{{ item.label }}</span>
-      </div>
-    </div>
-
-    <ng-template #convencionesVacias>
-      <div class="convenciones-empty">
-        No hay convenciones disponibles para la vista actual.
-      </div>
-    </ng-template>
-
-    <div class="coordinate-modal-actions convenciones-modal-actions">
-      <button type="button" class="popup-download" (click)="descargarConvencionesComoImagen()">
-        Descargar convenciones
-      </button>
-      <button type="button" class="map-modal-close" (click)="mostrarConvencionesModal = false">
-        Cerrar
-      </button>
-    </div>
-  </div>
-</div>
 <!-- El bloque de estilos debe ir fuera del HTML, en el archivo .css o al final del template, nunca dentro de una etiqueta o lista -->
 <div class="stats-layout" [class.sidebar-hidden]="!sidebarVisible">
   <app-sidebar *ngIf="sidebarVisible" (ocultar)="toggleSidebar()"></app-sidebar>
@@ -1127,14 +1087,38 @@
         </ng-template>
       </section>
 
-      <label class="coordinate-input-card subfilter-card">
-        <span>Estado</span>
-        <select name="subFiltroEstadoModal" [(ngModel)]="filtrosForm.subFiltroEstado">
-          <option value="">Todos</option>
-          <option *ngFor="let estado of opcionesSubFiltros.estados" [value]="estado">{{ estado }}</option>
-        </select>
+      <section class="coordinate-input-card subfilter-card subfilter-card-spoa" aria-labelledby="spoa-group-label">
+        <span id="spoa-group-label">SPOA</span>
+        <div class="spoa-radio-group" role="radiogroup" aria-labelledby="spoa-group-label">
+          <label class="spoa-radio-option" for="opcionesSpoaModal-todos">
+            <input
+              id="opcionesSpoaModal-todos"
+              type="radio"
+              name="opcionesSpoaModal"
+              [value]="'TODO'"
+              [(ngModel)]="filtrosForm.opcionesSpoa">
+            <span class="spoa-radio-content">
+              <span class="spoa-radio-indicator" aria-hidden="true"></span>
+              <span class="spoa-radio-text">Todo</span>
+            </span>
+          </label>
+
+          <label class="spoa-radio-option" *ngFor="let spoa of opcionesSubFiltros.spoa; let i = index"
+            [for]="'opcionesSpoaModal-' + i">
+            <input
+              [id]="'opcionesSpoaModal-' + i"
+              type="radio"
+              name="opcionesSpoaModal"
+              [value]="spoa"
+              [(ngModel)]="filtrosForm.opcionesSpoa">
+            <span class="spoa-radio-content">
+              <span class="spoa-radio-indicator" aria-hidden="true"></span>
+              <span class="spoa-radio-text">{{ spoa }}</span>
+            </span>
+          </label>
+        </div>
         <small class="subfilter-hint">Filtro complementario para afinar el resultado.</small>
-      </label>
+      </section>
     </div>
 
     <p class="map-modal-text" *ngIf="!opcionesSubFiltros.divisiones.length">
@@ -1677,7 +1661,7 @@
         <!-- SELECCION -->
 
         <div class="subfilter-selection-summary"
-          *ngIf="documentoInfraSeleccionado else documentosInfraestructuraSinSeleccion">
+          *ngIf="documentoSeleccionado else documentosInfraestructuraSinSeleccion">
 
           <span class="subfilter-summary-label">
             Selección actual
@@ -1686,7 +1670,7 @@
           <div class="subfilter-selection-chips">
 
             <span class="subfilter-chip">
-              {{ documentoInfraSeleccionado.texto }}
+              {{ documentoSeleccionado.texto }}
             </span>
 
           </div>
@@ -1706,6 +1690,51 @@
 
       </section>
 
+      <!-- Documentos de narcotráfico -->
+      <section class="subfilter-card subfilter-card-wide unidades-launcher-card">
+        <div class="subfilter-launcher-head">
+          <div>
+            <span>Narcotráfico</span>
+            <strong>Documentos de Narcotráfico</strong>
+          </div>
+          <button type="button" class="map-action-button" (click)="abrirNarcotraficoModal()">
+            Documentos de Narcotráfico
+          </button>
+        </div>
+        <small class="subfilter-hint">Abre la ventana emergente seleccionar los tipos de reportes relacionados con
+          narcotráfico.</small>
+
+        <!-- SELECCION -->
+
+        <div class="subfilter-selection-summary"
+          *ngIf="documentoSeleccionado else documentosNarcotraficoSinSeleccion">
+
+          <span class="subfilter-summary-label">
+            Selección actual
+          </span>
+
+          <div class="subfilter-selection-chips">
+
+            <span class="subfilter-chip">
+              {{ documentoSeleccionado.texto }}
+            </span>
+
+          </div>
+
+        </div>
+
+        <!-- SIN SELECCION -->
+
+        <ng-template #documentosNarcotraficoSinSeleccion>
+
+          <p class="subfilter-empty-state">
+            Aún no has seleccionado un documento de narcotráfico.
+          </p>
+
+        </ng-template>
+
+
+      </section>
 
 
     </div>
@@ -2238,8 +2267,8 @@
 
         <label class="apoyo-radio-card" *ngFor="let documento of documentosInfraestructura">
 
-          <input type="radio" name="documentoInfraSeleccionado" [value]="documento"
-            [(ngModel)]="documentoInfraSeleccionado">
+          <input type="radio" name="documento" [value]="documento"
+            [(ngModel)]="documentoSeleccionado">
 
           <div class="apoyo-radio-content">
 
@@ -2274,4 +2303,108 @@
   </div>
 
 
+  <!-- ========================================= -->
+  <!-- Documentos de narcotráfico -->
+  <!--========================================= -->
+
+  <div class="subfilter-nested-backdrop" *ngIf="mostrarSelectorNarcotraficoModal"
+    (click)="cerrarNarcotraficoModal()">
+    <div class="subfilter-nested-modal" (click)="$event.stopPropagation()">
+      <div class="popup-modal-head">
+        <div>
+          <span class="card-kicker">Narcotráfico</span>
+          <h2>Documentos de Narcotráfico</h2>
+        </div>
+        <button class="popup-close" type="button" aria-label="Cerrar selector de unidades"
+          (click)="cerrarNarcotraficoModal()">&times;</button>
+      </div>
+      <p class="map-modal-text">Selecciona el Documento de Narcotráfico.
+      </p>
+
+      <!-- LISTADO -->
+
+      <div class="apoyos-radio-grid">
+
+        <label class="apoyo-radio-card" *ngFor="let documento of documentosNarcotrafico">
+
+          <input type="radio" name="documento" [value]="documento"
+            [(ngModel)]="documentoSeleccionado">
+
+          <div class="apoyo-radio-content">
+
+            <div class="apoyo-radio-indicator"></div>
+
+            <div class="apoyo-radio-info">
+
+              <strong>
+                {{ documento.texto }}
+              </strong>
+
+              <small>
+                {{ documento.id }}
+              </small>
+
+            </div>
+
+          </div>
+
+        </label>
+
+      </div>
+
+      <!-- FOOTER -->
+
+
+
+      <div class="coordinate-modal-actions subfilters-actions">
+        <button type="button" class="map-action-button" (click)="cerrarNarcotraficoModal()">Cerrar</button>
+      </div>
+    </div>
+  </div>
+
+
+
+
+
+</div>
+<!-- Modal de convenciones -->
+<div class="popup-modal-backdrop" *ngIf="mostrarConvencionesModal" (click)="mostrarConvencionesModal = false">
+  <div #convencionesModalRef class="popup-modal convenciones-modal" (click)="$event.stopPropagation()">
+    <div class="popup-modal-head convenciones-modal-head">
+      <div>
+        <span class="card-kicker">Mapa</span>
+        <h2>Convenciones</h2>
+      </div>
+      <button class="popup-close" type="button" aria-label="Cerrar convenciones"
+        (click)="mostrarConvencionesModal = false">&times;</button>
+    </div>
+
+    <div class="convenciones-modal-summary">
+      <span class="convenciones-summary-label">Tipo de mapa</span>
+      <strong>{{ tipoMapaActivo | titlecase }}</strong>
+    </div>
+
+    <div class="convenciones-list" *ngIf="mapLegendItems.length; else convencionesVacias">
+      <div class="convenciones-item" *ngFor="let item of mapLegendItems">
+        <span class="convencion-swatch" [class.convencion-swatch-line]="item.kind === 'line'"
+          [style.--convencion-color]="item.color"></span>
+        <span class="convencion-label">{{ item.label }}</span>
+      </div>
+    </div>
+
+    <ng-template #convencionesVacias>
+      <div class="convenciones-empty">
+        No hay convenciones disponibles para la vista actual.
+      </div>
+    </ng-template>
+
+    <div class="coordinate-modal-actions convenciones-modal-actions">
+      <button type="button" class="popup-download" (click)="descargarConvencionesComoImagen()">
+        Descargar convenciones
+      </button>
+      <button type="button" class="map-modal-close" (click)="mostrarConvencionesModal = false">
+        Cerrar
+      </button>
+    </div>
+  </div>
 </div>
